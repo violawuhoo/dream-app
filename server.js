@@ -27,8 +27,9 @@ function resolveProviderConfig() {
   const explicitProvider = process.env.DREAM_LLM_PROVIDER;
   const groqKey = process.env.GROQ_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const deepseekKey = process.env.DEEPSEEK_API_KEY;
 
-  const provider = explicitProvider || (groqKey ? "groq" : openRouterKey ? "openrouter" : "groq");
+  const provider = explicitProvider || (deepseekKey ? "deepseek" : groqKey ? "groq" : openRouterKey ? "openrouter" : "deepseek");
 
   if (provider === "openrouter") {
     return {
@@ -40,6 +41,16 @@ function resolveProviderConfig() {
         "HTTP-Referer": process.env.OPENROUTER_SITE_URL || `http://localhost:${PORT}`,
         "X-Title": process.env.OPENROUTER_APP_NAME || "Dream App MVP",
       },
+    };
+  }
+
+  if (provider === "deepseek") {
+    return {
+      provider: "deepseek",
+      apiKey: deepseekKey,
+      baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
+      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+      extraHeaders: {},
     };
   }
 
@@ -66,7 +77,9 @@ async function requestModelCompletion({ stage, session, latestUserMessage, conti
     throw new Error(
       config.provider === "groq"
         ? "Missing GROQ_API_KEY. Set it before starting the server."
-        : "Missing OPENROUTER_API_KEY. Set it before starting the server.",
+        : config.provider === "openrouter"
+        ? "Missing OPENROUTER_API_KEY. Set it before starting the server."
+        : "Missing DEEPSEEK_API_KEY. Set it before starting the server.",
     );
   }
 
