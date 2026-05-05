@@ -27,9 +27,9 @@ function resolveProviderConfig() {
   const explicitProvider = process.env.DREAM_LLM_PROVIDER;
   const groqKey = process.env.GROQ_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
-  const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  const kimiKey = process.env.KIMI_API_KEY;
 
-  const provider = explicitProvider || (deepseekKey ? "deepseek" : groqKey ? "groq" : openRouterKey ? "openrouter" : "deepseek");
+  const provider = explicitProvider || (kimiKey ? "kimi" : groqKey ? "groq" : openRouterKey ? "openrouter" : "kimi");
 
   if (provider === "openrouter") {
     return {
@@ -44,12 +44,12 @@ function resolveProviderConfig() {
     };
   }
 
-  if (provider === "deepseek") {
+  if (provider === "kimi") {
     return {
-      provider: "deepseek",
-      apiKey: deepseekKey,
-      baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
-      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+      provider: "kimi",
+      apiKey: kimiKey,
+      baseURL: process.env.KIMI_BASE_URL || "https://api.moonshot.cn/v1",
+      model: process.env.KIMI_MODEL || "moonshot-v1-8k",
       extraHeaders: {},
     };
   }
@@ -79,7 +79,7 @@ async function requestModelCompletion({ stage, session, latestUserMessage, conti
         ? "Missing GROQ_API_KEY. Set it before starting the server."
         : config.provider === "openrouter"
         ? "Missing OPENROUTER_API_KEY. Set it before starting the server."
-        : "Missing DEEPSEEK_API_KEY. Set it before starting the server.",
+        : "Missing KIMI_API_KEY. Set it before starting the server.",
     );
   }
 
