@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dream App MVP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-panel">
+        <div class="brand-block">
+          <p class="eyebrow">Dream Archive</p>
+          <h1>Dream App</h1>
+          <p class="brand-copy">
+            A quiet place to reconstruct a dream before it fades.
+          </p>
+        </div>
+
+        <nav class="primary-nav">
+          <button type="button" class="nav-button is-active" data-route="home">Home</button>
+          <button type="button" class="nav-button" data-route="history">History</button>
+        </nav>
+
+        <section class="history-preview">
+          <p class="section-label">Recent records</p>
+          <div id="recent-records" class="preview-list"></div>
+        </section>
+      </aside>
+
+      <main class="main-panel">
+        <section id="home-screen" class="screen screen-visible">
+          <div class="hero">
+            <p class="hero-overline">Presence</p>
+            <h2>Begin with whatever remains.</h2>
+            <p class="hero-copy">
+              Describe the dream in your own language. The app will ask only what
+              is needed, then shape it into a record you can keep.
+            </p>
+            <button
+              id="start-session-button"
+              class="primary-button"
+              type="button"
+              onclick="window.__dreamAppEnter()"
+            >
+              Enter the dream
+            </button>
+          </div>
+        </section>
+
+        <section id="conversation-screen" class="screen">
+          <div class="conversation-header">
+            <div>
+              <p class="section-label">Current flow</p>
+              <h2 id="state-label">RAW</h2>
+            </div>
+            <div class="top-actions">
+              <button id="history-link-button" class="ghost-button">History</button>
+              <button id="stop-flow-button" class="ghost-button">Stop</button>
+            </div>
+          </div>
+
+          <div id="chat-log" class="chat-log" aria-live="polite"></div>
+
+          <div id="summary-panel" class="decision-panel hidden">
+            <p class="section-label">Structured narrative</p>
+            <div id="summary-content" class="decision-copy"></div>
+            <div class="decision-actions">
+              <button id="confirm-summary-button" class="primary-button">
+                Confirm summary
+              </button>
+              <button id="edit-summary-button" class="ghost-button">
+                Correct it
+              </button>
+            </div>
+          </div>
+
+          <div id="interpretation-panel" class="decision-panel hidden">
+            <p class="section-label">Interpretation</p>
+            <div id="interpretation-content" class="decision-copy"></div>
+            <div class="decision-actions">
+              <button id="save-record-button" class="primary-button">
+                Save record
+              </button>
+            </div>
+          </div>
+
+          <form id="chat-form" class="composer" onsubmit="return window.__dreamAppSubmit(event)">
+            <label class="composer-label" for="chat-input">Dream text</label>
+            <textarea
+              id="chat-input"
+              rows="4"
+              placeholder="It began somewhere dim..."
+            ></textarea>
+            <div class="composer-actions">
+              <button type="button" id="direct-summary-button" class="ghost-button">
+                Direct summary
+              </button>
+              <button type="button" id="interpret-button" class="ghost-button hidden">
+                Interpret it
+              </button>
+              <button type="button" id="skip-interpretation-button" class="ghost-button hidden">
+                Skip interpretation
+              </button>
+              <button type="submit" class="primary-button">Send</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="history-screen" class="screen">
+          <div class="history-header">
+            <div>
+              <p class="section-label">Archive</p>
+              <h2>Saved dreams</h2>
+            </div>
+          </div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="message-template">
+      <article class="message">
+        <p class="message-role"></p>
+        <div class="message-body"></div>
+      </article>
+    </template>
+
+    <script>
+      (function () {
+        function setActiveNav(route) {
+          document.querySelectorAll(".nav-button").forEach(function (button) {
+            button.classList.toggle("is-active", button.dataset.route === route);
+          });
+        }
+
+        function showScreen(route) {
+          var screens = {
+            home: document.querySelector("#home-screen"),
+            conversation: document.querySelector("#conversation-screen"),
+            history: document.querySelector("#history-screen"),
+          };
+
+          Object.keys(screens).forEach(function (key) {
+            screens[key].classList.toggle("screen-visible", key === route);
+          });
+          setActiveNav(route);
+        }
+
+        function navigate(route) {
+          if (typeof window.__dreamAppInternalNavigate === "function") {
+            return window.__dreamAppInternalNavigate(route);
+          }
+          showScreen(route);
+          return false;
+        }
+
+        document.querySelectorAll(".nav-button").forEach(function (button) {
+          button.addEventListener("click", function () {
+            navigate(button.dataset.route);
+          });
+        });
+
+        window.__dreamAppShowScreen = showScreen;
+        window.__dreamAppNavigate = navigate;
+
+        window.__dreamAppEnter = function () {
+          if (typeof window.__dreamAppBeginSession === "function") {
+            return window.__dreamAppBeginSession();
+          }
+          showScreen("conversation");
+          return false;
+        };
+
+        window.__dreamAppSubmit = function (event) {
+          event.preventDefault();
+          if (typeof window.__dreamAppHandleSubmit === "function") {
+            return window.__dreamAppHandleSubmit(event);
+          }
+          return false;
+        };
+      })();
+    </script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
