@@ -33,3 +33,21 @@ export async function requestDreamSummary({ session }) {
 
   return payload.content;
 }
+
+export async function requestDreamInterpretation({ session }) {
+  const payload = await postJson("/api/dream-chat", {
+    stage: "interpret",
+    session,
+  });
+
+  return payload.content;
+}
+
+export async function requestDreamTitle({ session }) {
+  const payload = await postJson("/api/dream-chat", {
+    stage: "title",
+    session,
+  });
+
+  return payload.content;
+}

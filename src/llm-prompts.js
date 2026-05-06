@@ -59,3 +59,53 @@ export function buildStructuredMessages({ session }) {
     },
   ];
 }
+
+export function buildInterpretationMessages({ session }) {
+  const dreamFragments = session.rawEntries.map((entry, index) => `${index + 1}. ${entry}`).join("\n");
+  const summary = session.summary || "";
+
+  return [
+    {
+      role: "system",
+      content:
+        "You are Veil, offering a gentle, grounded interpretation of a dream. Stay thoughtful and non-diagnostic. Do not claim certainty. Frame interpretations as possibilities, not facts. Focus on emotional resonance, symbolic patterns, and potential connections to waking life. Keep it concise but meaningful. Use a warm, supportive tone.",
+    },
+    {
+      role: "system",
+      content:
+        "Structure your response in three clear sections:\n1. What stands out - key images, emotions, and actions from the dream\n2. Possible meanings - thoughtful, non-diagnostic possibilities about what the dream might reflect\n3. What remains open - acknowledge the mystery and multiplicity of dream meanings",
+    },
+    {
+      role: "user",
+      content: [
+        "Dream fragments:",
+        dreamFragments || "(none yet)",
+        "Structured summary:",
+        summary || "(none yet)",
+        "Recent conversation:",
+        formatRecentMessages(session.messages) || "(none yet)",
+        "Write a gentle, grounded interpretation following the structure above.",
+      ].join("\n\n"),
+    },
+  ];
+}
+
+export function buildTitleMessages({ session }) {
+  const summary = session.summary || session.rawEntries.join(" ");
+
+  return [
+    {
+      role: "system",
+      content:
+        "You are Veil, creating a concise, evocative title for a dream record. The title should capture the core feeling or most striking image from the dream. Keep it short (1-2 sentences maximum). Be poetic but grounded. Do not use clickbait. Do not interpret deeply - just capture the essence.",
+    },
+    {
+      role: "user",
+      content: [
+        "Dream summary or fragments:",
+        summary || "(none yet)",
+        "Write a concise, evocative title for this dream record.",
+      ].join("\n\n"),
+    },
+  ];
+}

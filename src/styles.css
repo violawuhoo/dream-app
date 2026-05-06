@@ -272,6 +272,18 @@ textarea:focus {
   color: var(--muted);
 }
 
+.interpretation-section {
+  font-weight: 600;
+  color: var(--accent-strong);
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+
+.decision-copy p {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
 .hidden {
   display: none;
 }

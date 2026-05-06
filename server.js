@@ -3,7 +3,12 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, stat } from "node:fs/promises";
-import { buildExpansionMessages, buildStructuredMessages } from "./src/llm-prompts.js";
+import {
+  buildExpansionMessages,
+  buildStructuredMessages,
+  buildInterpretationMessages,
+  buildTitleMessages,
+} from "./src/llm-prompts.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -86,7 +91,29 @@ async function requestModelCompletion({ stage, session, latestUserMessage, conti
   const messages =
     stage === "struct"
       ? buildStructuredMessages({ session })
+      : stage === "interpret"
+      ? buildInterpretationMessages({ session })
+      : stage === "title"
+      ? buildTitleMessages({ session })
       : buildExpansionMessages({ session, latestUserMessage, continuation });
+
+  const maxTokens =
+    stage === "struct"
+      ? 220
+      : stage === "interpret"
+      ? 500
+      : stage === "title"
+      ? 100
+      : 120;
+
+  const temperature =
+    stage === "struct"
+      ? 0.35
+      : stage === "interpret"
+      ? 0.7
+      : stage === "title"
+      ? 0.6
+      : 0.8;
 
   const response = await fetch(`${config.baseURL}/chat/completions`, {
     method: "POST",
@@ -98,8 +125,8 @@ async function requestModelCompletion({ stage, session, latestUserMessage, conti
     body: JSON.stringify({
       model: config.model,
       messages,
-      temperature: stage === "struct" ? 0.35 : 0.8,
-      max_tokens: stage === "struct" ? 220 : 120,
+      temperature,
+      max_tokens: maxTokens,
     }),
   });
 

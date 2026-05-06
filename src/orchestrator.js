@@ -1,6 +1,11 @@
 import { createDreamRecord, createSession, DreamFlowState } from "./dream-model.js";
 import { APP_COPY, INTERPRETATION_FRAMES } from "./prompts.js";
-import { requestDreamFollowUp, requestDreamSummary } from "./llm-client.js";
+import {
+  requestDreamFollowUp,
+  requestDreamSummary,
+  requestDreamInterpretation,
+  requestDreamTitle,
+} from "./llm-client.js";
 
 const DONE_PATTERNS = [
   "that's all",
@@ -250,25 +255,10 @@ export function correctSummary(session, updatedSummary) {
   return session;
 }
 
-function buildInterpretation(session) {
-  const source = normalize(session.summary || session.rawEntries.join(" "));
-  const observation = `${source || "The dream"} leaves a strong emotional residue.`;
-  const meaning =
-    "This could reflect the mind working through pressure, change, or an unresolved feeling that was easier to picture than to name directly.";
-  const limitation =
-    "That is only one reading. Dreams braid memory, mood, and symbol together, so the meaning is never final.";
-
-  return [
-    `${INTERPRETATION_FRAMES.observationPrefix} ${observation}`,
-    `${INTERPRETATION_FRAMES.meaningPrefix} ${meaning}`,
-    `${INTERPRETATION_FRAMES.limitationPrefix} ${limitation}`,
-  ].join("\n\n");
-}
-
-export function chooseInterpretation(session, shouldInterpret) {
+export async function chooseInterpretation(session, shouldInterpret) {
   session.interpretationDecisionPending = false;
   if (shouldInterpret) {
-    session.interpretation = buildInterpretation(session);
+    session.interpretation = await requestDreamInterpretation({ session });
     pushAssistant(session, "Here is one grounded reading of the dream.");
   } else {
     session.interpretation = "";
@@ -284,10 +274,14 @@ export function stopSession(session) {
   return session;
 }
 
-export function finalizeRecord(session) {
+export async function finalizeRecord(session) {
+  if (!session.title && session.summary) {
+    session.title = await requestDreamTitle({ session });
+  }
   const record = createDreamRecord({
     raw_input: session.rawEntries.join("\n"),
     narrative: session.summary,
+    title: session.title || session.summary.substring(0, 100) + (session.summary.length > 100 ? "..." : ""),
     keywords: extractKeywordsFromSession(session),
     emotions: extractEmotionsFromSession(session),
     interpretation: session.interpretation,

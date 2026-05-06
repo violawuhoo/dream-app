@@ -96,8 +96,20 @@ function renderInterpretationPanel() {
   const visible = Boolean(session?.state === "DONE" && session?.summary);
   interpretationPanel.classList.toggle("hidden", !visible);
   if (visible) {
-    interpretationContent.textContent =
+    const interpretation =
       session.interpretation || "No interpretation was added. The dream will be kept as a plain record.";
+    interpretationContent.innerHTML = interpretation.split("\n\n").map((para) => {
+      const trimmed = para.trim();
+      if (!trimmed) return "";
+      if (
+        trimmed.startsWith("What stands out") || 
+        trimmed.startsWith("1.") || 
+        trimmed.startsWith("What it could suggest") || 
+        trimmed.startsWith("What remains")) {
+        return `<p class="interpretation-section">${trimmed}</p>`;
+      }
+      return `<p>${trimmed}</p>`;
+    }).join("");
   }
   saveRecordButton.classList.toggle("hidden", !visible || Boolean(session?.completedRecord));
 }
@@ -134,7 +146,7 @@ function renderHistory() {
     item.className = "record-card compact";
     item.innerHTML = `
       <p class="record-date">${new Date(record.created_at).toLocaleString()}</p>
-      <p class="record-title">${record.narrative}</p>
+      <p class="record-title">${record.title || record.narrative}</p>
     `;
     recentRecordsNode.appendChild(item);
   });
@@ -144,7 +156,7 @@ function renderHistory() {
     item.className = "record-card";
     item.innerHTML = `
       <p class="record-date">${new Date(record.created_at).toLocaleString()}</p>
-      <p class="record-title">${record.narrative}</p>
+      <p class="record-title">${record.title || record.narrative}</p>
       <p class="record-meta">Keywords: ${record.keywords.join(", ") || "none"}</p>
       <p class="record-meta">Emotions: ${record.emotions.join(", ") || "none"}</p>
       <p class="record-meta">${record.interpretation || "No interpretation saved."}</p>
@@ -171,14 +183,21 @@ window.__dreamAppBooted = true;
 window.__dreamAppBeginSession = beginSession;
 window.__dreamAppInternalNavigate = navigateToRoute;
 
-function persistCurrentRecord() {
+async function persistCurrentRecord() {
   if (!session) {
     return;
   }
-  const record = finalizeRecord(session);
-  records = saveDreamRecord(record);
-  renderHistory();
+  isSubmitting = true;
   renderSession();
+  try {
+    const record = await finalizeRecord(session);
+    records = saveDreamRecord(record);
+    renderHistory();
+    renderSession();
+  } finally {
+    isSubmitting = false;
+    renderSession();
+  }
 }
 
 historyLinkButton.addEventListener("click", () => {
@@ -271,12 +290,19 @@ directSummaryButton.addEventListener("click", async () => {
   }
 });
 
-interpretButton.addEventListener("click", () => {
-  if (!session) {
+interpretButton.addEventListener("click", async () => {
+  if (!session || isSubmitting) {
     return;
   }
-  chooseInterpretation(session, true);
+  isSubmitting = true;
   renderSession();
+  try {
+    await chooseInterpretation(session, true);
+    renderSession();
+  } finally {
+    isSubmitting = false;
+    renderSession();
+  }
 });
 
 confirmSummaryButton.addEventListener("click", () => {
@@ -299,12 +325,19 @@ editSummaryButton.addEventListener("click", () => {
   renderSession();
 });
 
-skipInterpretationButton.addEventListener("click", () => {
-  if (!session) {
+skipInterpretationButton.addEventListener("click", async () => {
+  if (!session || isSubmitting) {
     return;
   }
-  chooseInterpretation(session, false);
+  isSubmitting = true;
   renderSession();
+  try {
+    await chooseInterpretation(session, false);
+    renderSession();
+  } finally {
+    isSubmitting = false;
+    renderSession();
+  }
 });
 
 saveRecordButton.addEventListener("click", persistCurrentRecord);
