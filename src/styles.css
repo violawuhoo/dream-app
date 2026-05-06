@@ -307,13 +307,55 @@ textarea:focus {
   .side-panel {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    padding: 24px 16px;
   }
 
   .main-panel {
-    padding: 20px;
+    padding: 16px;
   }
 
   .hero {
     padding-top: 24px;
+  }
+
+  .brand-block h1 {
+    font-size: 2.5rem;
+  }
+
+  .hero h2 {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+  }
+
+  .chat-log {
+    max-height: 50vh;
+  }
+
+  .composer {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .side-panel {
+    padding: 20px 12px;
+  }
+
+  .main-panel {
+    padding: 12px;
+  }
+
+  .brand-block h1 {
+    font-size: 2rem;
+  }
+
+  .hero h2 {
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+  }
+
+  .nav-button,
+  .primary-button,
+  .ghost-button {
+    padding: 10px 14px;
+    font-size: 0.9rem;
   }
 }
