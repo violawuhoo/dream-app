@@ -15,6 +15,16 @@ const DONE_PATTERNS = [
   "you can summarize",
   "summarize it",
   "summarise it",
+  "nope",
+  "nah",
+  "no",
+  "nothing else",
+  "that's it for now",
+  "nothing more",
+  "i'm done",
+  "im done",
+  "finish",
+  "done",
 ];
 
 const CONTINUE_PATTERNS = [
@@ -27,6 +37,14 @@ const CONTINUE_PATTERNS = [
   "not yet",
   "a little more",
   "i want to add more",
+  "yeah",
+  "yep",
+  "sure",
+  "more please",
+  "continue",
+  "go on",
+  "there's more",
+  "theres more",
 ];
 
 const CHECK_IN_LINES = [
