@@ -8,9 +8,10 @@ import {
   stopSession,
   submitDreamMessage,
 } from "./orchestrator.js";
-import { loadDreamRecords, saveDreamRecord } from "./storage.js";
+import { clearUser, loadDreamRecords, loadUser, saveDreamRecord, saveUser } from "./storage.js";
 
 const screens = {
+  login: document.querySelector("#login-screen"),
   home: document.querySelector("#home-screen"),
   conversation: document.querySelector("#conversation-screen"),
   history: document.querySelector("#history-screen"),
@@ -37,13 +38,23 @@ const directSummaryButton = document.querySelector("#direct-summary-button");
 const interpretButton = document.querySelector("#interpret-button");
 const skipInterpretationButton = document.querySelector("#skip-interpretation-button");
 const messageTemplate = document.querySelector("#message-template");
+const loginGoogleButton = document.querySelector("#login-google-button");
+const loginInstagramButton = document.querySelector("#login-instagram-button");
+const loginXButton = document.querySelector("#login-x-button");
+const loginGuestButton = document.querySelector("#login-guest-button");
+const mobileNav = document.querySelector(".mobile-nav");
+const mobileLogoutButton = document.querySelector("#mobile-logout-button");
 
 let session = null;
 let records = loadDreamRecords();
+let user = loadUser();
 let isSubmitting = false;
 
 function switchScreen(route) {
   Object.values(screens).forEach((screen) => screen.classList.remove("screen-visible"));
+  if (route === "login") {
+    screens.login.classList.add("screen-visible");
+  }
   if (route === "home") {
     screens.home.classList.add("screen-visible");
   }
@@ -54,11 +65,17 @@ function switchScreen(route) {
     screens.history.classList.add("screen-visible");
   }
   navButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.route === route);
+    button.classList.toggle("is-active", button.dataset.route === route && route !== "login");
   });
+  mobileNav?.classList.toggle("hidden", route === "login");
+  mobileLogoutButton?.classList.toggle("hidden", !user);
 }
 
 function navigateToRoute(route) {
+  if (route !== "login" && !user) {
+    switchScreen("login");
+    return false;
+  }
   switchScreen(route);
   return false;
 }
@@ -173,6 +190,10 @@ function renderSession() {
 }
 
 function beginSession() {
+  if (!user) {
+    switchScreen("login");
+    return;
+  }
   session = startDreamSession();
   switchScreen("conversation");
   renderSession();
@@ -204,6 +225,28 @@ historyLinkButton.addEventListener("click", () => {
   switchScreen("history");
 });
 
+function completeLogin(provider) {
+  const nextUser = saveUser({
+    provider,
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+  });
+  user = nextUser;
+  switchScreen("home");
+}
+
+loginGoogleButton?.addEventListener("click", () => completeLogin("google"));
+loginInstagramButton?.addEventListener("click", () => completeLogin("instagram"));
+loginXButton?.addEventListener("click", () => completeLogin("x"));
+loginGuestButton?.addEventListener("click", () => completeLogin("guest"));
+
+mobileLogoutButton?.addEventListener("click", () => {
+  clearUser();
+  user = null;
+  session = null;
+  switchScreen("login");
+});
+
 stopFlowButton.addEventListener("click", () => {
   if (!session) {
     return;
@@ -233,7 +276,7 @@ async function handleChatSubmit(event) {
   try {
     if (session.interpretationDecisionPending) {
       const decision = input.toLowerCase();
-      chooseInterpretation(session, decision.startsWith("y"));
+      await chooseInterpretation(session, decision.startsWith("y"));
     } else {
       await submitDreamMessage(session, input);
     }
@@ -343,4 +386,4 @@ skipInterpretationButton.addEventListener("click", async () => {
 saveRecordButton.addEventListener("click", persistCurrentRecord);
 
 renderHistory();
-switchScreen("home");
+switchScreen(user ? "home" : "login");

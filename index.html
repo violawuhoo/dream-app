@@ -35,6 +35,28 @@
       </aside>
 
       <main class="main-panel">
+        <nav class="mobile-nav">
+          <button type="button" class="nav-button" data-route="home">Home</button>
+          <button type="button" class="nav-button" data-route="history">History</button>
+          <button type="button" id="mobile-logout-button" class="ghost-button">Log out</button>
+        </nav>
+
+        <section id="login-screen" class="screen">
+          <div class="hero">
+            <p class="hero-overline">Welcome</p>
+            <h2>Enter the archive.</h2>
+            <p class="hero-copy">
+              Sign in to keep your dream records on this device. (Authentication is a UI-only placeholder for now.)
+            </p>
+            <div class="composer-actions">
+              <button id="login-google-button" class="primary-button" type="button">Continue with Google</button>
+              <button id="login-instagram-button" class="ghost-button" type="button">Continue with Instagram</button>
+              <button id="login-x-button" class="ghost-button" type="button">Continue with X</button>
+              <button id="login-guest-button" class="ghost-button" type="button">Continue as guest</button>
+            </div>
+          </div>
+        </section>
+
         <section id="home-screen" class="screen screen-visible">
           <div class="hero">
             <p class="hero-overline">Presence</p>
@@ -142,6 +164,7 @@
 
         function showScreen(route) {
           var screens = {
+            login: document.querySelector("#login-screen"),
             home: document.querySelector("#home-screen"),
             conversation: document.querySelector("#conversation-screen"),
             history: document.querySelector("#history-screen"),
