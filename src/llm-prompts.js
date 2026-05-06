@@ -73,7 +73,7 @@ export function buildInterpretationMessages({ session }) {
     {
       role: "system",
       content:
-        "Structure your response in three clear sections:\n1. What stands out - key images, emotions, and actions from the dream\n2. Possible meanings - thoughtful, non-diagnostic possibilities about what the dream might reflect\n3. What remains open - acknowledge the mystery and multiplicity of dream meanings",
+        "Structure your response in two clear sections:\n1. What stands out - key images, emotions, and actions from the dream\n2. Possible meanings - thoughtful, non-diagnostic possibilities about what the dream might reflect",
     },
     {
       role: "user",
@@ -84,7 +84,7 @@ export function buildInterpretationMessages({ session }) {
         summary || "(none yet)",
         "Recent conversation:",
         formatRecentMessages(session.messages) || "(none yet)",
-        "Write a gentle, grounded interpretation following the structure above.",
+        "Write a gentle, grounded interpretation following the structure above. Do not include disclaimers or meta-notes; the UI will show a short reminder separately.",
       ].join("\n\n"),
     },
   ];

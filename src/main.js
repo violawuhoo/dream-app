@@ -33,7 +33,9 @@ const confirmSummaryButton = document.querySelector("#confirm-summary-button");
 const editSummaryButton = document.querySelector("#edit-summary-button");
 const interpretationPanel = document.querySelector("#interpretation-panel");
 const interpretationContent = document.querySelector("#interpretation-content");
+const interpretationDisclaimer = document.querySelector("#interpretation-disclaimer");
 const saveRecordButton = document.querySelector("#save-record-button");
+const discardRecordButton = document.querySelector("#discard-record-button");
 const directSummaryButton = document.querySelector("#direct-summary-button");
 const interpretButton = document.querySelector("#interpret-button");
 const skipInterpretationButton = document.querySelector("#skip-interpretation-button");
@@ -122,13 +124,18 @@ function renderInterpretationPanel() {
         trimmed.startsWith("What stands out") || 
         trimmed.startsWith("1.") || 
         trimmed.startsWith("What it could suggest") || 
-        trimmed.startsWith("What remains")) {
+        trimmed.startsWith("2.")) {
         return `<p class="interpretation-section">${trimmed}</p>`;
       }
       return `<p>${trimmed}</p>`;
     }).join("");
   }
-  saveRecordButton.classList.toggle("hidden", !visible || Boolean(session?.completedRecord));
+  if (interpretationDisclaimer) {
+    interpretationDisclaimer.classList.toggle("hidden", !visible);
+  }
+  const showSaveControls = visible && !Boolean(session?.completedRecord);
+  saveRecordButton.classList.toggle("hidden", !showSaveControls);
+  discardRecordButton?.classList.toggle("hidden", !showSaveControls);
 }
 
 function renderControls() {
@@ -384,6 +391,11 @@ skipInterpretationButton.addEventListener("click", async () => {
 });
 
 saveRecordButton.addEventListener("click", persistCurrentRecord);
+discardRecordButton?.addEventListener("click", () => {
+  session = null;
+  switchScreen("home");
+  renderSession();
+});
 
 renderHistory();
 switchScreen(user ? "home" : "login");

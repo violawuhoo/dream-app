@@ -302,6 +302,13 @@ textarea:focus {
   margin-bottom: 4px;
 }
 
+.interpretation-disclaimer {
+  margin: 12px 0 0;
+  color: rgba(182, 172, 159, 0.8);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .decision-copy p {
   margin: 8px 0;
   line-height: 1.8;
