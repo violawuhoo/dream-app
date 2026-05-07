@@ -95,7 +95,7 @@ export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }
     {
       role: "system",
       content:
-        "You are Veil. The user has provided a specific life event or feeling that they believe connects to their dream. Your task is to provide an updated, more grounded 3-part interpretation that weaves the dream symbols together with this waking-life context.\n\nStructure:\n1. **Refined Symbols**: Re-examine the symbols in light of the new context.\n2. **Integrated Narrative**: How the dream and the life event form a single story.\n3. **Direct Life Guidance**: Specific psychological advice or insight based on this connection.\n\nUse bold for key insights.",
+        "You are Veil. The user has provided a life event. Your task is to provide an updated 2-part interpretation:\n\n1. **Symbolic Resonance**: Merge the refined symbols and the integrated narrative into one concise paragraph. Show how the dream symbols mirror the life event.\n2. **Direct Life Guidance**: Provide a short, actionable psychological insight.\n\nKeep both sections brief and impactful. Use bold for key insights.",
     },
     {
       role: "user",
@@ -106,7 +106,7 @@ export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }
         session.interpretation,
         "User's Life Context:",
         lifeEvent,
-        "Provide the updated 3-part interpretation now.",
+        "Provide the focused 2-part life-connection interpretation now.",
       ].join("\n\n"),
     },
   ];
@@ -120,12 +120,12 @@ export function buildTarotInterpretationMessages({ session }: { session: any }) 
     {
       role: "system",
       content:
-        `You are Veil, a master of dream interpretation and Tarot. Your interpretation MUST strictly follow this 2-part structure:
+        `You are Veil. Provide a very concise 2-part Tarot insight:
 
-1. **The Card's Essence**: Explain what the drawn card (**${tarotCard.name}**) means in its traditional sense.
-2. **Integrated Confirmation**: Explain what this card, combined with the dream and the user's life context, offers as a final insight or confirmation.
+1. **The Card's Essence**: Briefly explain **${tarotCard.name}**'s meaning.
+2. **Integrated Confirmation**: One or two sentences confirming how this card ties the dream and life context together.
 
-Keep it deep, resonant, and concise. Use bold for key insights.`,
+Keep the total response very short. Use bold for key insights.`,
     },
     {
       role: "user",
@@ -135,7 +135,7 @@ Keep it deep, resonant, and concise. Use bold for key insights.`,
         "Life Context:",
         lifeContext,
         `Drawn Tarot Card: **${tarotCard.name}**\nCard Meaning: ${tarotCard.meaning}`,
-        "Provide the focused 2-part Tarot interpretation now.",
+        "Provide the very brief 2-part Tarot confirmation now.",
       ].join("\n\n"),
     },
   ];

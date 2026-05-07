@@ -242,7 +242,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative overflow-hidden">
         <div className="bg-glow opacity-40 scale-150" />
         
-        <div className="z-10 text-center space-y-12 max-w-sm w-full">
+        <div className="z-10 text-center space-y-12 max-w-sm w-full flex flex-col items-center">
           <div className="space-y-4">
             <h2 className="text-2xl font-light tracking-widest uppercase">The Oracle</h2>
             <p className="text-sm text-text-dim font-light leading-relaxed">
@@ -250,33 +250,47 @@ export default function App() {
             </p>
           </div>
 
-          <div className="relative aspect-[2/3] w-full max-w-[240px] mx-auto group perspective-1000">
+          <div className="relative w-full h-80 flex items-center justify-center perspective-1000">
             {session.state === DreamFlowState.TAROT_DRAWING ? (
-              <div className="w-full h-full rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
+              <div className="w-48 h-72 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
                 <div className="text-4xl">✨</div>
               </div>
             ) : session.tarotCard ? (
-              <div className="w-full h-full rounded-2xl border border-accent/50 bg-accent/5 p-8 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
-                <div className="text-6xl mb-8">🃏</div>
-                <div className="space-y-4">
-                  <div className="text-xs tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
-                  <h3 className="text-2xl font-medium text-accent-light">{session.tarotCard.name}</h3>
-                  <p className="text-xs text-text-dim italic leading-relaxed">{session.tarotCard.meaning}</p>
+              <div className="w-48 h-72 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl overflow-y-auto">
+                <div className="text-4xl mb-4">🃏</div>
+                <div className="space-y-3">
+                  <div className="text-[10px] tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
+                  <h3 className="text-xl font-medium text-accent-light">{session.tarotCard.name}</h3>
+                  <div className="text-[10px] text-text-dim italic leading-relaxed border-t border-white/5 pt-2">
+                    {session.tarotCard.meaning}
+                  </div>
                 </div>
               </div>
             ) : (
-              <button 
-                onClick={() => drawTarot()}
-                className="w-full h-full rounded-2xl border-2 border-white/10 bg-white/5 flex flex-col items-center justify-center gap-6 hover:border-accent/50 hover:bg-accent/5 transition-all duration-700 group-hover:scale-[1.02] shadow-xl"
-              >
-                <div className="text-4xl opacity-40 group-hover:opacity-100 transition-opacity">✨</div>
-                <div className="text-xs tracking-widest uppercase text-text-dim group-hover:text-accent-light transition-colors">Tap to unveil</div>
-              </button>
+              <div className="relative w-full h-full flex items-center justify-center">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => drawTarot()}
+                    className={`absolute w-40 h-64 rounded-xl tarot-card-back shadow-xl transition-all duration-500 hover:-translate-y-4 hover:border-accent/60 animate-fan-${i} active:scale-95`}
+                    style={{ zIndex: 5 - Math.abs(2 - i) }}
+                  />
+                ))}
+              </div>
             )}
           </div>
 
+          {session.tarotInterpretation && (
+            <div className="w-full mt-8 p-6 bg-white/[0.03] border border-white/5 rounded-2xl animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <div className="text-[10px] tracking-widest uppercase text-accent-light/40 mb-4">Tarot Confirmation</div>
+              <div className="text-sm leading-relaxed font-light text-foreground/90 text-left max-h-48 overflow-y-auto">
+                {renderInterpretation(session.tarotInterpretation)}
+              </div>
+            </div>
+          )}
+
           {(session.state === DreamFlowState.DONE || session.state === DreamFlowState.TAROT_INTERPRETING) && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+            <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
               {isProcessing ? (
                 <div className="text-xs tracking-widest uppercase text-accent-light/60 animate-pulse">Veil is weaving the insight...</div>
               ) : (
@@ -379,7 +393,9 @@ export default function App() {
                     <>
                       <div className="my-8 border-t border-white/5 pt-8" />
                       <div className="text-[10px] tracking-widest text-text-dim/40 uppercase mb-6">Life Connection Insight</div>
-                      {renderInterpretation(session.lifeConnectionInterpretation)}
+                      <div className="text-sm leading-relaxed font-light">
+                        {renderInterpretation(session.lifeConnectionInterpretation)}
+                      </div>
                     </>
                   )}
                   {session.tarotInterpretation && (
