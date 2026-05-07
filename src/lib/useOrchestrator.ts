@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
 import { callLLM } from "./llm-client";
-import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages } from "./llm-prompts";
+import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages } from "./llm-prompts";
 
 const DONE_PATTERNS = [
   "nope", "nah", "no", "nothing else", "that's it for now", "nothing more", "i'm done", "im done", "finish", "done",
@@ -104,9 +104,27 @@ export function useOrchestrator() {
       updateSession({ state: DreamFlowState.INTERPRETING });
       const prompts = buildInterpretationMessages({ session });
       const interpretation = await callLLM(prompts, 0.7);
-      updateSession({ interpretation, state: DreamFlowState.DONE });
+      updateSession({ interpretation, state: DreamFlowState.AWAITING_LIFE_CONNECTION });
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLifeConnection = async (userResponse: string) => {
+    if (!userResponse.trim()) return;
+    setIsProcessing(true);
+    try {
+      const prompts = buildLifeConnectionMessages({ session, userResponse });
+      const closingThought = await callLLM(prompts, 0.7);
+      updateSession({ 
+        interpretation: `${session.interpretation}\n\n---\n\n*Your reflection:* ${userResponse}\n\n*Veil:* ${closingThought}`,
+        state: DreamFlowState.DONE 
+      });
+    } catch (e) {
+      console.error(e);
+      updateSession({ state: DreamFlowState.DONE });
     } finally {
       setIsProcessing(false);
     }
@@ -156,6 +174,7 @@ export function useOrchestrator() {
     skipInterpretation,
     saveRecord,
     resetSession,
+    handleLifeConnection,
     updateSession
   };
 }

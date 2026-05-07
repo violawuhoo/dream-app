@@ -14,7 +14,8 @@ export default function App() {
     generateInterpretation, 
     skipInterpretation, 
     saveRecord, 
-    resetSession 
+    resetSession,
+    handleLifeConnection
   } = useOrchestrator();
 
   const [input, setInput] = useState("");
@@ -24,7 +25,7 @@ export default function App() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [session.messages]);
+  }, [session.messages, session.state]);
 
   const handleLogin = (provider: string) => {
     setCurrentView("home");
@@ -37,7 +38,13 @@ export default function App() {
 
   const handleSend = () => {
     if (!input.trim() || isProcessing) return;
-    handleUserMessage(input);
+    
+    if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
+      handleLifeConnection(input);
+    } else {
+      handleUserMessage(input);
+    }
+    
     setInput("");
   };
 
@@ -60,6 +67,29 @@ export default function App() {
       setCurrentView("history");
     }
   };
+
+  // Helper to render interpretation with basic markdown support
+   const renderInterpretation = (text: string) => {
+     if (!text) return null;
+     
+     // Split by one or more newlines
+     return text.split(/\n+/).map((paragraph, idx) => {
+       if (!paragraph.trim()) return null;
+       
+       // Handle bold text like **symbol**
+       const parts = paragraph.split(/(\*\*.*?\*\*)/g);
+       return (
+         <p key={idx} className="mb-4 last:mb-0">
+           {parts.map((part, i) => {
+             if (part.startsWith("**") && part.endsWith("**")) {
+               return <strong key={i} className="font-semibold text-accent-light">{part.slice(2, -2)}</strong>;
+             }
+             return part;
+           })}
+         </p>
+       );
+     });
+   };
 
   if (currentView === "login") {
     return (
@@ -174,14 +204,23 @@ export default function App() {
           </div>
         )}
 
-        {session.state === DreamFlowState.DONE && !isProcessing && (
+        {(session.state === DreamFlowState.AWAITING_LIFE_CONNECTION || session.state === DreamFlowState.DONE) && !isProcessing && (
           <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {session.interpretation && (
               <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
                 <div className="text-xs tracking-widest text-text-dim uppercase mb-6 opacity-50">Interpretation</div>
-                <div className="text-sm leading-relaxed space-y-4 whitespace-pre-wrap text-foreground/90 font-light">
-                  {session.interpretation}
+                <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 font-light">
+                  {renderInterpretation(session.interpretation)}
                 </div>
+                
+                {session.state === DreamFlowState.AWAITING_LIFE_CONNECTION && (
+                  <div className="mt-8 pt-8 border-t border-white/5 animate-pulse">
+                    <p className="text-sm text-text-dim italic">
+                      How does this land with you? Does any part of this mirror your waking life?
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-8 pt-6 border-t border-white/5">
                   <p className="text-[10px] text-text-dim/40 italic uppercase tracking-tighter">
                     Dreams are personal echoes. This is a reflection, not a diagnosis.
@@ -189,27 +228,33 @@ export default function App() {
                 </div>
               </div>
             )}
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={handleSave} 
-                className="w-full py-5 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98]"
-              >
-                Save into Archive
-              </button>
-              <button 
-                onClick={handleDiscard} 
-                className="w-full py-4 text-red-400/50 hover:text-red-400 text-xs transition-colors"
-              >
-                Discard this dream
-              </button>
-            </div>
+            
+            {session.state === DreamFlowState.DONE && (
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={handleSave} 
+                  className="w-full py-5 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98]"
+                >
+                  Save into Archive
+                </button>
+                <button 
+                  onClick={handleDiscard} 
+                  className="w-full py-4 text-red-400/50 hover:text-red-400 text-xs transition-colors"
+                >
+                  Discard this dream
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      {(session.state === DreamFlowState.RAW || session.state === DreamFlowState.EXPANDING || session.state === DreamFlowState.AWAITING_CONTINUE_DECISION) && (
+      {(session.state === DreamFlowState.RAW || 
+        session.state === DreamFlowState.EXPANDING || 
+        session.state === DreamFlowState.AWAITING_CONTINUE_DECISION ||
+        session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) && (
         <div className="fixed bottom-0 left-0 w-full p-6 z-20">
           <div className="max-w-2xl mx-auto input-container rounded-3xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
             <div className="flex items-end gap-2 p-2">
@@ -217,7 +262,7 @@ export default function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe your dream..."
+                placeholder={session.state === DreamFlowState.AWAITING_LIFE_CONNECTION ? "Your reflection..." : "Describe your dream..."}
                 disabled={isProcessing}
                 className="flex-1 bg-transparent border-none px-4 py-4 text-sm focus:outline-none resize-none h-14 max-h-32"
                 rows={1}
