@@ -48,6 +48,20 @@ export function useOrchestrator() {
           updateSession({ state: DreamFlowState.EXPANDING, waitingForContinueDecision: false });
           await askFollowUp({...session, messages: updatedMessages, state: DreamFlowState.EXPANDING});
         }
+      } else if (session.state === DreamFlowState.RAW || session.state === DreamFlowState.EXPANDING) {
+        if (isDone) {
+          await proceedToStructuring({...session, messages: updatedMessages});
+        } else if ((session.userTurnCount + 1) >= session.nextCheckTurn) {
+          const checkMsg = { role: "assistant", content: "Do you want to add anything else? (Or we can finish and summarize)" };
+          updateSession({ 
+            messages: [...updatedMessages, checkMsg],
+            state: DreamFlowState.AWAITING_CONTINUE_DECISION,
+            waitingForContinueDecision: true,
+            nextCheckTurn: session.userTurnCount + 4 
+          });
+        } else {
+          await askFollowUp({...session, messages: updatedMessages, state: DreamFlowState.EXPANDING});
+        }
       } else if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
         await handleLifeConnection(text);
       }
