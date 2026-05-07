@@ -100,16 +100,22 @@ export default function App() {
      return text.split(/\n+/).map((paragraph, idx) => {
        if (!paragraph.trim()) return null;
        
-       // Handle bold text like **symbol**
-       const parts = paragraph.split(/(\*\*.*?\*\*)/g);
+       // Handle format "Title: Content"
+       const colonIndex = paragraph.indexOf(":");
+       if (colonIndex > 0 && colonIndex < 40) { // Assume titles are short
+         const title = paragraph.substring(0, colonIndex);
+         const content = paragraph.substring(colonIndex + 1);
+         return (
+           <div key={idx} className="mb-6 last:mb-0">
+             <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2">{title}</div>
+             <p className="text-sm leading-relaxed font-light text-foreground/90">{content.trim()}</p>
+           </div>
+         );
+       }
+
        return (
-         <p key={idx} className="mb-4 last:mb-0">
-           {parts.map((part, i) => {
-             if (part.startsWith("**") && part.endsWith("**")) {
-               return <strong key={i} className="font-semibold text-accent-light">{part.slice(2, -2)}</strong>;
-             }
-             return part;
-           })}
+         <p key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90">
+           {paragraph}
          </p>
        );
      });

@@ -77,7 +77,7 @@ export function buildInterpretationMessages({ session }: { session: any }) {
     {
       role: "system",
       content:
-        "You are Veil, a master of dream interpretation. Your interpretation MUST strictly follow this 3-part structure:\n\n1. **Core Symbols**: Pick the 1-2 most significant objects or images and briefly explain their essence.\n2. **Coherent Narrative**: In one or two sentences, explain what the whole dream means as a unified experience.\n3. **Waking Life Implications**: Briefly suggest how this mirrors the user's current conscious life.\n\nKeep the entire response concise and impactful. Use bold for key insights.",
+        "You are Veil, a master of dream interpretation. Your interpretation MUST strictly follow this 3-part structure:\n\nCore Symbols: Pick the 1-2 most significant images and briefly explain their essence.\nCoherent Narrative: In one or two sentences, explain what the dream means as a unified experience.\nWaking Life Implications: Briefly suggest how this mirrors the user's current conscious life.\n\nCRITICAL: Do not use any markdown formatting like ** or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph.",
     },
     {
       role: "user",
@@ -95,7 +95,7 @@ export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }
     {
       role: "system",
       content:
-        "You are Veil. The user has provided a life event. Your task is to provide an updated 2-part interpretation:\n\n1. **Symbolic Resonance**: Merge the refined symbols and the integrated narrative into one concise paragraph. Show how the dream symbols mirror the life event.\n2. **Direct Life Guidance**: Provide a short, actionable psychological insight.\n\nKeep both sections brief and impactful. Use bold for key insights.",
+        "You are Veil. The user has provided a life event. Your task is to provide an updated 2-part interpretation:\n\nSymbolic Resonance: Merge the refined symbols and narrative into one concise paragraph.\nDirect Life Guidance: Provide a short, actionable psychological insight.\n\nCRITICAL: Do not use any markdown formatting like ** or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph.",
     },
     {
       role: "user",
@@ -122,10 +122,10 @@ export function buildTarotInterpretationMessages({ session }: { session: any }) 
       content:
         `You are Veil. Provide a very concise 2-part Tarot insight:
 
-1. **The Card's Essence**: Briefly explain **${tarotCard.name}**'s meaning.
-2. **Integrated Confirmation**: One or two sentences confirming how this card ties the dream and life context together.
+The Card's Essence: Briefly explain ${tarotCard.name}'s meaning.
+Integrated Confirmation: One or two sentences confirming how this card ties the dream and life context together.
 
-Keep the total response very short. Use bold for key insights.`,
+CRITICAL: Do not use any markdown formatting like ** or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph.`,
     },
     {
       role: "user",
@@ -134,7 +134,7 @@ Keep the total response very short. Use bold for key insights.`,
         session.summary,
         "Life Context:",
         lifeContext,
-        `Drawn Tarot Card: **${tarotCard.name}**\nCard Meaning: ${tarotCard.meaning}`,
+        `Drawn Tarot Card: ${tarotCard.name}\nCard Meaning: ${tarotCard.meaning}`,
         "Provide the very brief 2-part Tarot confirmation now.",
       ].join("\n\n"),
     },
