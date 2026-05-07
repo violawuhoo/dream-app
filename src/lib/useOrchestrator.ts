@@ -104,7 +104,21 @@ export function useOrchestrator() {
       updateSession({ state: DreamFlowState.INTERPRETING });
       const prompts = buildInterpretationMessages({ session });
       const interpretation = await callLLM(prompts, 0.7);
-      updateSession({ interpretation, state: DreamFlowState.AWAITING_LIFE_CONNECTION });
+      
+      updateSession({ 
+        interpretation, 
+        state: DreamFlowState.AWAITING_LIFE_CONNECTION 
+      });
+
+      // 3 second delay for the life connection question
+      setTimeout(() => {
+        const question = "How does this land with you? Does any part of this mirror your waking life?";
+        setSession((prev: any) => ({
+          ...prev,
+          messages: [...prev.messages, { role: "assistant", content: question }]
+        }));
+      }, 3000);
+
     } catch (e) {
       console.error(e);
     } finally {

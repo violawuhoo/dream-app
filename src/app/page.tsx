@@ -116,8 +116,8 @@ export default function App() {
             <button onClick={() => setCurrentView("login")} className="hover:text-foreground">Log out</button>
           </div>
         </nav>
-        <h1 className="text-2xl font-light mb-8">What did you dream?</h1>
-        <button onClick={startChat} className="px-8 py-3 rounded-full bg-foreground text-background hover:opacity-90 transition">Begin</button>
+        <h1 className="text-2xl font-light mb-8">What fragments remain from your dream?</h1>
+        <button onClick={startChat} className="px-8 py-3 rounded-full bg-foreground text-background hover:opacity-90 transition">Begin the descent</button>
       </div>
     );
   }
@@ -212,14 +212,6 @@ export default function App() {
                 <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 font-light">
                   {renderInterpretation(session.interpretation)}
                 </div>
-                
-                {session.state === DreamFlowState.AWAITING_LIFE_CONNECTION && (
-                  <div className="mt-8 pt-8 border-t border-white/5 animate-pulse">
-                    <p className="text-sm text-text-dim italic">
-                      How does this land with you? Does any part of this mirror your waking life?
-                    </p>
-                  </div>
-                )}
 
                 <div className="mt-8 pt-6 border-t border-white/5">
                   <p className="text-[10px] text-text-dim/40 italic uppercase tracking-tighter">
@@ -262,7 +254,7 @@ export default function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={session.state === DreamFlowState.AWAITING_LIFE_CONNECTION ? "Your reflection..." : "Describe your dream..."}
+                placeholder={session.state === DreamFlowState.AWAITING_LIFE_CONNECTION ? "Your reflection..." : "Unveil your dream fragments..."}
                 disabled={isProcessing}
                 className="flex-1 bg-transparent border-none px-4 py-4 text-sm focus:outline-none resize-none h-14 max-h-32"
                 rows={1}

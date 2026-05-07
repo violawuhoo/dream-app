@@ -30,7 +30,7 @@ export function createSession() {
     rawEntries: [] as string[],
     messages: [] as any[],
     userTurnCount: 0,
-    nextCheckTurn: 3,
+    nextCheckTurn: 5,
     waitingForContinueDecision: false,
     askedQuestions: [] as string[],
     lastAssistantQuestion: "",
