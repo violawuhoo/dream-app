@@ -72,6 +72,9 @@ export function useOrchestrator() {
   };
 
   const askFollowUp = async (currentSession: any) => {
+    // Artificial delay for "thinking"
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     const prompts = buildExpansionMessages({ session: currentSession, latestUserMessage: currentSession.messages[currentSession.messages.length - 1].content });
     const response = await callLLM(prompts, 0.7);
     const newMsg = { role: "assistant", content: response };
@@ -82,10 +85,17 @@ export function useOrchestrator() {
   };
 
   const proceedToStructuring = async (currentSession: any) => {
-    updateSession({ state: DreamFlowState.STRUCTURED });
+    // We don't change state to STRUCTURED immediately to keep it in chat
     const prompts = buildStructuredMessages({ session: currentSession });
     const summary = await callLLM(prompts, 0.5);
-    updateSession({ summary });
+    
+    // Add summary to chat as Veil
+    const summaryMsg = { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` };
+    updateSession({ 
+      summary, 
+      messages: [...currentSession.messages, summaryMsg],
+      state: DreamFlowState.STRUCTURED 
+    });
   };
 
   const generateInterpretation = async () => {

@@ -119,61 +119,89 @@ export default function App() {
 
   // Chat View
   return (
-    <div className="min-h-screen flex flex-col max-w-2xl mx-auto p-4 relative">
-      <nav className="flex justify-between items-center mb-4 py-2 border-b border-accent/30">
-        <button onClick={handleDiscard} className="text-sm text-text-dim hover:text-foreground">← Home</button>
-        <div className="text-sm tracking-widest uppercase">VEIL</div>
+    <div className="min-h-screen flex flex-col max-w-2xl mx-auto relative overflow-hidden">
+      <div className="bg-glow" />
+      
+      <nav className="flex justify-between items-center p-6 border-b border-white/5 backdrop-blur-md z-10">
+        <button onClick={handleDiscard} className="text-sm text-text-dim hover:text-foreground transition-colors">← Home</button>
+        <div className="text-xs tracking-[0.3em] font-light text-text-dim uppercase">VEIL</div>
+        <div className="w-12" /> {/* spacer */}
       </nav>
 
-      <div className="flex-1 overflow-y-auto pb-32 space-y-6 px-2">
+      <div className="flex-1 overflow-y-auto pb-40 space-y-8 px-6 pt-8 scroll-smooth z-0">
         {session.messages.length === 0 && (
-          <div className="text-center text-text-dim mt-20">
-            Tell me what you remember. It doesn't have to make sense.
+          <div className="text-center text-text-dim mt-20 font-light italic opacity-50">
+            Tell me what you remember...
           </div>
         )}
 
         {session.messages.map((msg: any, i: number) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-5 py-3 ${
-              msg.role === "user" ? "bg-accent text-foreground" : "bg-transparent border border-accent/50 text-foreground"
+          <div key={i} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
+            <div className={`bubble ${
+              msg.role === "user" ? "bubble-user shadow-lg shadow-black/20" : "bubble-veil"
             }`}>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
             </div>
           </div>
         ))}
+        
         {isProcessing && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl px-5 py-3 bg-transparent border border-accent/50 text-text-dim text-sm italic">
-              Veil is thinking...
+          <div className="flex justify-start animate-in fade-in duration-300">
+            <div className="bubble bubble-veil">
+              <div className="dots">
+                <div className="dot" />
+                <div className="dot" />
+                <div className="dot" />
+              </div>
             </div>
           </div>
         )}
 
         {session.state === DreamFlowState.STRUCTURED && !isProcessing && (
-          <div className="bg-accent/20 border border-accent rounded-xl p-6 mt-8">
-            <h3 className="text-sm font-medium uppercase tracking-wider mb-4 text-text-dim">Summary</h3>
-            <p className="text-sm leading-relaxed mb-6">{session.summary}</p>
-            <div className="flex gap-4">
-              <button onClick={() => generateInterpretation()} className="flex-1 py-2 bg-foreground text-background rounded-lg text-sm hover:opacity-90">Interpret this</button>
-              <button onClick={skipInterpretation} className="flex-1 py-2 border border-accent rounded-lg text-sm hover:bg-accent/50">Save as is</button>
-            </div>
+          <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <button 
+              onClick={() => generateInterpretation()} 
+              className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98]"
+            >
+              Interpret the symbols
+            </button>
+            <button 
+              onClick={skipInterpretation} 
+              className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors"
+            >
+              Just save the dream
+            </button>
           </div>
         )}
 
         {session.state === DreamFlowState.DONE && !isProcessing && (
-          <div className="bg-accent/20 border border-accent rounded-xl p-6 mt-8">
+          <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {session.interpretation && (
-              <>
-                <h3 className="text-sm font-medium uppercase tracking-wider mb-4 text-text-dim">Interpretation</h3>
-                <div className="text-sm leading-relaxed mb-6 whitespace-pre-wrap">{session.interpretation}</div>
-                <p className="text-xs text-text-dim italic mb-6 pb-6 border-b border-accent/50">
-                  Note: Dreams are highly personal. This is just one perspective.
-                </p>
-              </>
+              <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
+                <div className="text-xs tracking-widest text-text-dim uppercase mb-6 opacity-50">Interpretation</div>
+                <div className="text-sm leading-relaxed space-y-4 whitespace-pre-wrap text-foreground/90 font-light">
+                  {session.interpretation}
+                </div>
+                <div className="mt-8 pt-6 border-t border-white/5">
+                  <p className="text-[10px] text-text-dim/40 italic uppercase tracking-tighter">
+                    Dreams are personal echoes. This is a reflection, not a diagnosis.
+                  </p>
+                </div>
+              </div>
             )}
-            <div className="flex gap-4">
-              <button onClick={handleSave} className="flex-1 py-3 bg-foreground text-background rounded-lg text-sm hover:opacity-90 font-medium">Save Record</button>
-              <button onClick={handleDiscard} className="flex-1 py-3 border border-accent rounded-lg text-sm text-red-400 hover:bg-red-900/20">Discard</button>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={handleSave} 
+                className="w-full py-5 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98]"
+              >
+                Save into Archive
+              </button>
+              <button 
+                onClick={handleDiscard} 
+                className="w-full py-4 text-red-400/50 hover:text-red-400 text-xs transition-colors"
+              >
+                Discard this dream
+              </button>
             </div>
           </div>
         )}
@@ -182,27 +210,30 @@ export default function App() {
 
       {/* Input Area */}
       {(session.state === DreamFlowState.RAW || session.state === DreamFlowState.EXPANDING || session.state === DreamFlowState.AWAITING_CONTINUE_DECISION) && (
-        <div className="absolute bottom-0 left-0 w-full bg-background p-4 border-t border-accent/30">
-          <div className="max-w-2xl mx-auto flex gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your dream here..."
-              disabled={isProcessing}
-              className="flex-1 bg-accent/30 border border-accent rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-foreground resize-none h-12"
-              rows={1}
-            />
-            <button 
-              onClick={handleSend}
-              disabled={isProcessing || !input.trim()}
-              className="px-6 rounded-xl bg-foreground text-background disabled:opacity-50 text-sm font-medium"
-            >
-              Send
-            </button>
+        <div className="fixed bottom-0 left-0 w-full p-6 z-20">
+          <div className="max-w-2xl mx-auto input-container rounded-3xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
+            <div className="flex items-end gap-2 p-2">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your dream..."
+                disabled={isProcessing}
+                className="flex-1 bg-transparent border-none px-4 py-4 text-sm focus:outline-none resize-none h-14 max-h-32"
+                rows={1}
+              />
+              <button 
+                onClick={handleSend}
+                disabled={isProcessing || !input.trim()}
+                className="mb-1 mr-1 p-3 rounded-2xl bg-foreground text-background disabled:opacity-20 transition-all active:scale-90"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
