@@ -4,8 +4,11 @@ export const DreamFlowState = {
   AWAITING_CONTINUE_DECISION: "AWAITING_CONTINUE_DECISION",
   STRUCTURED: "STRUCTURED",
   INTERPRETING: "INTERPRETING",
-  TAROT_DRAWING: "TAROT_DRAWING",
   AWAITING_LIFE_CONNECTION: "AWAITING_LIFE_CONNECTION",
+  LIFE_CONNECTION_INTERPRETING: "LIFE_CONNECTION_INTERPRETING",
+  AWAITING_TAROT_DECISION: "AWAITING_TAROT_DECISION",
+  TAROT_DRAWING: "TAROT_DRAWING",
+  TAROT_INTERPRETING: "TAROT_INTERPRETING",
   DONE: "DONE",
 } as const;
 
@@ -21,7 +24,9 @@ export function createDreamRecord(fields: any) {
     keywords: fields.keywords ?? [],
     emotions: fields.emotions ?? [],
     interpretation: fields.interpretation ?? "",
+    life_connection_interpretation: fields.life_connection_interpretation ?? "",
     tarot_card: fields.tarot_card ?? null,
+    tarot_interpretation: fields.tarot_interpretation ?? "",
     status: fields.status ?? DreamFlowState.DONE,
   };
 }
@@ -45,7 +50,10 @@ export function createSession() {
     summary: "",
     title: "",
     interpretation: "",
+    lifeConnection: "",
+    lifeConnectionInterpretation: "",
     tarotCard: null as any,
+    tarotInterpretation: "",
     directSummaryRequested: false,
     interpretationDecisionPending: false,
     completedRecord: null,

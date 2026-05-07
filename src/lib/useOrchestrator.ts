@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
 import { callLLM } from "./llm-client";
-import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages, buildLifeConnectionQuestionMessages } from "./llm-prompts";
+import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages } from "./llm-prompts";
 import { getRandomTarotCard } from "./tarot-data";
 
 const DONE_PATTERNS = [
@@ -48,20 +48,8 @@ export function useOrchestrator() {
           updateSession({ state: DreamFlowState.EXPANDING, waitingForContinueDecision: false });
           await askFollowUp({...session, messages: updatedMessages, state: DreamFlowState.EXPANDING});
         }
-      } else if (session.state === DreamFlowState.RAW || session.state === DreamFlowState.EXPANDING) {
-        if (isDone) {
-          await proceedToStructuring({...session, messages: updatedMessages});
-        } else if ((session.userTurnCount + 1) >= session.nextCheckTurn) {
-          const checkMsg = { role: "assistant", content: "Do you want to add anything else? (Or we can finish and summarize)" };
-          updateSession({ 
-            messages: [...updatedMessages, checkMsg],
-            state: DreamFlowState.AWAITING_CONTINUE_DECISION,
-            waitingForContinueDecision: true,
-            nextCheckTurn: session.userTurnCount + 4 
-          });
-        } else {
-          await askFollowUp({...session, messages: updatedMessages, state: DreamFlowState.EXPANDING});
-        }
+      } else if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
+        await handleLifeConnection(text);
       }
     } catch (e) {
       console.error(e);
@@ -102,44 +90,18 @@ export function useOrchestrator() {
   const generateInterpretation = async () => {
     setIsProcessing(true);
     try {
-      // Step 1: Tarot Drawing
-      updateSession({ state: DreamFlowState.TAROT_DRAWING });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Delay for effect
-      const tarotCard = getRandomTarotCard();
-      
-      // Update session with tarot card and move to interpreting
-      const sessionWithTarot = { ...session, tarotCard, state: DreamFlowState.INTERPRETING };
-      updateSession({ tarotCard, state: DreamFlowState.INTERPRETING });
-
-      // Step 2: Interpretation with Tarot
-      const prompts = buildInterpretationMessages({ session: sessionWithTarot });
+      updateSession({ state: DreamFlowState.INTERPRETING });
+      const prompts = buildInterpretationMessages({ session });
       const interpretation = await callLLM(prompts, 0.7);
+      
+      const interpretationMsg = { role: "assistant", content: interpretation };
+      const questionMsg = { role: "assistant", content: "How does this land with you? Is there a specific event or feeling in your waking life that this brings to mind?" };
       
       updateSession({ 
         interpretation, 
+        messages: [...session.messages, interpretationMsg, questionMsg],
         state: DreamFlowState.AWAITING_LIFE_CONNECTION 
       });
-
-      // 5 second delay for the personalized life connection question
-      setTimeout(async () => {
-        try {
-          const questionPrompts = buildLifeConnectionQuestionMessages({ session, interpretation });
-          const question = await callLLM(questionPrompts, 0.7);
-          
-          setSession((prev: any) => ({
-            ...prev,
-            messages: [...prev.messages, { role: "assistant", content: question }]
-          }));
-        } catch (err) {
-          console.error("Failed to generate life connection question:", err);
-          // Fallback question
-          const fallback = "How does this land with you? Does any part of this mirror your waking life?";
-          setSession((prev: any) => ({
-            ...prev,
-            messages: [...prev.messages, { role: "assistant", content: fallback }]
-          }));
-        }
-      }, 5000);
 
     } catch (e) {
       console.error(e);
@@ -152,10 +114,49 @@ export function useOrchestrator() {
     if (!userResponse.trim()) return;
     setIsProcessing(true);
     try {
-      const prompts = buildLifeConnectionMessages({ session, userResponse });
-      const closingThought = await callLLM(prompts, 0.7);
       updateSession({ 
-        interpretation: `${session.interpretation}\n\n---\n\n*Your reflection:* ${userResponse}\n\n*Veil:* ${closingThought}`,
+        state: DreamFlowState.LIFE_CONNECTION_INTERPRETING,
+        lifeConnection: userResponse 
+      });
+      
+      const prompts = buildLifeConnectionInterpretationMessages({ session: { ...session, lifeConnection: userResponse }, lifeEvent: userResponse });
+      const lifeConnectionInterpretation = await callLLM(prompts, 0.7);
+      
+      const interpretationMsg = { role: "assistant", content: lifeConnectionInterpretation };
+      const questionMsg = { role: "assistant", content: "Would you like to draw a Tarot card for further confirmation or final insight?" };
+      
+      updateSession({ 
+        lifeConnectionInterpretation, 
+        messages: [...session.messages, { role: "user", content: userResponse }, interpretationMsg, questionMsg],
+        state: DreamFlowState.AWAITING_TAROT_DECISION 
+      });
+    } catch (e) {
+      console.error(e);
+      updateSession({ state: DreamFlowState.DONE });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const drawTarot = async () => {
+    setIsProcessing(true);
+    try {
+      updateSession({ state: DreamFlowState.TAROT_DRAWING });
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Animation delay
+      
+      const tarotCard = getRandomTarotCard();
+      const sessionWithCard = { ...session, tarotCard, state: DreamFlowState.TAROT_INTERPRETING };
+      updateSession({ tarotCard, state: DreamFlowState.TAROT_INTERPRETING });
+      
+      const prompts = buildTarotInterpretationMessages({ session: sessionWithCard });
+      const tarotInterpretation = await callLLM(prompts, 0.7);
+      
+      const cardMsg = { role: "assistant", content: `You drew **${tarotCard.name}**. ${tarotCard.meaning}` };
+      const interpretationMsg = { role: "assistant", content: tarotInterpretation };
+      
+      updateSession({ 
+        tarotInterpretation, 
+        messages: [...session.messages, cardMsg, interpretationMsg],
         state: DreamFlowState.DONE 
       });
     } catch (e) {
@@ -164,6 +165,10 @@ export function useOrchestrator() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const skipTarot = () => {
+    updateSession({ state: DreamFlowState.DONE });
   };
 
   const skipInterpretation = () => {
@@ -181,6 +186,9 @@ export function useOrchestrator() {
         narrative: session.summary,
         title: title,
         interpretation: session.interpretation,
+        life_connection_interpretation: session.lifeConnectionInterpretation,
+        tarot_card: session.tarotCard,
+        tarot_interpretation: session.tarotInterpretation,
         status: DreamFlowState.DONE
       });
       
@@ -211,6 +219,8 @@ export function useOrchestrator() {
     saveRecord,
     resetSession,
     handleLifeConnection,
+    drawTarot,
+    skipTarot,
     updateSession
   };
 }

@@ -71,35 +71,72 @@ export function buildStructuredMessages({ session }: { session: any }) {
 }
 
 export function buildInterpretationMessages({ session }: { session: any }) {
-  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\\n");
   const summary = session.summary || "";
-  const tarotCard = session.tarotCard;
-
-  const systemContent = tarotCard 
-    ? "You are Veil, a master of dream interpretation who blends Western depth psychology (Jungian archetypes) with Tarot symbolism. Your tone is professional, deeply insightful, yet warm and personal—much like a wise therapist or a spiritual guide. Avoid generic disclaimers. Focus on finding the threads that connect the subconscious to the conscious mind through the lens of the drawn Tarot card."
-    : "You are Veil, providing a concise and deep dream interpretation. Avoid long paragraphs and do not repeat the dream's content unnecessarily. Your interpretation should be structured as follows:\n\n1. **Core Symbols**: Pick the 1-2 most significant objects or images and briefly explain their essence.\n2. **Coherent Narrative**: In one or two sentences, explain what the whole dream means as a unified experience.\n3. **Waking Life Implications**: Briefly suggest how this mirrors the user's current conscious life.\n\nKeep the entire response short and impactful. Use bold for key insights. Do not include a closing question here.";
-
-  const userContent = tarotCard
-    ? [
-        "Dream Summary:",
-        summary,
-        `Drawn Tarot Card: **${tarotCard.name}**\nCard Meaning: ${tarotCard.meaning}`,
-        "Provide a deep, grounded interpretation through the lens of this Tarot card. Use bold for key symbols and insights. End by asking the user a gentle question about how this might relate to their current waking life.",
-      ].join("\n\n")
-    : [
-        "Dream Summary:",
-        summary,
-        "Provide the focused 3-part interpretation now.",
-      ].join("\n\n");
 
   return [
     {
       role: "system",
-      content: systemContent,
+      content:
+        "You are Veil, a master of dream interpretation. Your interpretation MUST strictly follow this 3-part structure:\n\n1. **Core Symbols**: Pick the 1-2 most significant objects or images and briefly explain their essence.\n2. **Coherent Narrative**: In one or two sentences, explain what the whole dream means as a unified experience.\n3. **Waking Life Implications**: Briefly suggest how this mirrors the user's current conscious life.\n\nKeep the entire response concise and impactful. Use bold for key insights.",
     },
     {
       role: "user",
-      content: userContent,
+      content: [
+        "Dream Summary:",
+        summary,
+        "Provide the focused 3-part interpretation now.",
+      ].join("\n\n"),
+    },
+  ];
+}
+
+export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }: { session: any; lifeEvent: string }) {
+  return [
+    {
+      role: "system",
+      content:
+        "You are Veil. The user has provided a specific life event or feeling that they believe connects to their dream. Your task is to provide an updated, more grounded 3-part interpretation that weaves the dream symbols together with this waking-life context.\n\nStructure:\n1. **Refined Symbols**: Re-examine the symbols in light of the new context.\n2. **Integrated Narrative**: How the dream and the life event form a single story.\n3. **Direct Life Guidance**: Specific psychological advice or insight based on this connection.\n\nUse bold for key insights.",
+    },
+    {
+      role: "user",
+      content: [
+        "Dream Summary:",
+        session.summary,
+        "Initial Interpretation:",
+        session.interpretation,
+        "User's Life Context:",
+        lifeEvent,
+        "Provide the updated 3-part interpretation now.",
+      ].join("\n\n"),
+    },
+  ];
+}
+
+export function buildTarotInterpretationMessages({ session }: { session: any }) {
+  const tarotCard = session.tarotCard;
+  const lifeContext = session.lifeConnection || "(none provided)";
+
+  return [
+    {
+      role: "system",
+      content:
+        `You are Veil, a master of dream interpretation and Tarot. Your interpretation MUST strictly follow this 2-part structure:
+
+1. **The Card's Essence**: Explain what the drawn card (**${tarotCard.name}**) means in its traditional sense.
+2. **Integrated Confirmation**: Explain what this card, combined with the dream and the user's life context, offers as a final insight or confirmation.
+
+Keep it deep, resonant, and concise. Use bold for key insights.`,
+    },
+    {
+      role: "user",
+      content: [
+        "Dream Summary:",
+        session.summary,
+        "Life Context:",
+        lifeContext,
+        `Drawn Tarot Card: **${tarotCard.name}**\nCard Meaning: ${tarotCard.meaning}`,
+        "Provide the focused 2-part Tarot interpretation now.",
+      ].join("\n\n"),
     },
   ];
 }

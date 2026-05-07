@@ -7,6 +7,7 @@ import { toPng } from "html-to-image";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("login"); // login, home, chat, history
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const { 
     session, 
     isProcessing, 
@@ -16,11 +17,14 @@ export default function App() {
     skipInterpretation, 
     saveRecord, 
     resetSession,
-    handleLifeConnection
+    handleLifeConnection,
+    drawTarot,
+    skipTarot
   } = useOrchestrator();
 
   const [input, setInput] = useState("");
   const [showPoster, setShowPoster] = useState(false);
+  const [showTarotPage, setShowTarotPage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +33,15 @@ export default function App() {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [session.messages, session.state]);
+
+  useEffect(() => {
+    if (session.state === DreamFlowState.TAROT_DRAWING) {
+      setShowTarotPage(true);
+    } else if (session.state === DreamFlowState.DONE && showTarotPage) {
+      // Keep tarot page visible for a moment then maybe close or just let user see results
+      // Actually, if it's a "page", we should probably show the results on that page
+    }
+  }, [session.state]);
 
   const handleLogin = (provider: string) => {
     setCurrentView("home");
@@ -42,12 +55,7 @@ export default function App() {
   const handleSend = () => {
     if (!input.trim() || isProcessing) return;
     
-    if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
-      handleLifeConnection(input);
-    } else {
-      handleUserMessage(input);
-    }
-    
+    handleUserMessage(input);
     setInput("");
   };
 
@@ -140,23 +148,146 @@ export default function App() {
 
   if (currentView === "history") {
     const records = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("dream_records") || "[]") : [];
+    
+    if (selectedRecord) {
+      return (
+        <div className="min-h-screen p-6 max-w-2xl mx-auto flex flex-col relative overflow-hidden">
+          <div className="bg-glow opacity-20" />
+          <nav className="flex justify-between items-center mb-8 z-10">
+            <button onClick={() => setSelectedRecord(null)} className="text-sm text-text-dim hover:text-foreground">← Back to List</button>
+            <div className="text-xs tracking-widest uppercase opacity-50">Record Detail</div>
+          </nav>
+          
+          <div className="flex-1 overflow-y-auto space-y-8 pb-12 z-0">
+            <header className="space-y-2">
+              <div className="text-xs text-text-dim/60 uppercase tracking-widest">{new Date(selectedRecord.created_at).toLocaleDateString()}</div>
+              <h1 className="text-3xl font-light">{selectedRecord.title || "Untitled Dream"}</h1>
+            </header>
+
+            <section className="space-y-4">
+              <div className="text-[10px] tracking-[0.3em] text-text-dim uppercase opacity-40">The Narrative</div>
+              <p className="text-sm leading-relaxed font-light text-foreground/80 whitespace-pre-wrap">{selectedRecord.narrative}</p>
+            </section>
+
+            <section className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-8">
+              {selectedRecord.interpretation && (
+                <div className="space-y-4">
+                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Initial Interpretation</div>
+                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(selectedRecord.interpretation)}</div>
+                </div>
+              )}
+
+              {selectedRecord.life_connection_interpretation && (
+                <div className="space-y-4 pt-8 border-t border-white/5">
+                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Life Connection Insight</div>
+                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(selectedRecord.life_connection_interpretation)}</div>
+                </div>
+              )}
+
+              {selectedRecord.tarot_card && (
+                <div className="space-y-6 pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🃏</span>
+                    <div className="space-y-1">
+                      <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Confirmation</div>
+                      <div className="text-lg font-medium text-accent-light">{selectedRecord.tarot_card.name}</div>
+                    </div>
+                  </div>
+                  {selectedRecord.tarot_interpretation && (
+                    <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
+                      {renderInterpretation(selectedRecord.tarot_interpretation)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen p-6 max-w-2xl mx-auto flex flex-col">
         <nav className="flex justify-between items-center mb-8">
           <button onClick={() => setCurrentView("home")} className="text-sm text-text-dim hover:text-foreground">← Back</button>
           <div className="text-sm tracking-widest uppercase">History</div>
         </nav>
-        <div className="flex-1 overflow-y-auto space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-4">
           {records.length === 0 ? (
             <p className="text-center text-text-dim mt-20">No dreams recorded yet.</p>
           ) : (
             records.map((record: any) => (
-              <div key={record.id} className="p-6 border border-accent rounded-lg">
-                <div className="text-xs text-text-dim mb-2">{new Date(record.created_at).toLocaleDateString()}</div>
-                <h3 className="text-lg font-medium mb-4">{record.title || "Untitled Dream"}</h3>
-                <p className="text-sm text-text-dim whitespace-pre-wrap">{record.narrative}</p>
-              </div>
+              <button 
+                key={record.id} 
+                onClick={() => setSelectedRecord(record)}
+                className="w-full text-left p-6 border border-white/5 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.04] rounded-2xl transition-all group"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-[10px] text-text-dim/40 uppercase tracking-widest">{new Date(record.created_at).toLocaleDateString()}</div>
+                  {record.tarot_card && <span className="text-xs opacity-40 group-hover:opacity-100 transition-opacity">🃏</span>}
+                </div>
+                <h3 className="text-lg font-medium mb-2 group-hover:text-accent-light transition-colors">{record.title || "Untitled Dream"}</h3>
+                <p className="text-xs text-text-dim line-clamp-2 font-light">{record.narrative}</p>
+              </button>
             ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Tarot Drawing View
+  if (showTarotPage) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative overflow-hidden">
+        <div className="bg-glow opacity-40 scale-150" />
+        
+        <div className="z-10 text-center space-y-12 max-w-sm w-full">
+          <div className="space-y-4">
+            <h2 className="text-2xl font-light tracking-widest uppercase">The Oracle</h2>
+            <p className="text-sm text-text-dim font-light leading-relaxed">
+              Focus on your dream and the connection to your life. Draw a card for final confirmation.
+            </p>
+          </div>
+
+          <div className="relative aspect-[2/3] w-full max-w-[240px] mx-auto group perspective-1000">
+            {session.state === DreamFlowState.TAROT_DRAWING ? (
+              <div className="w-full h-full rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
+                <div className="text-4xl">✨</div>
+              </div>
+            ) : session.tarotCard ? (
+              <div className="w-full h-full rounded-2xl border border-accent/50 bg-accent/5 p-8 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
+                <div className="text-6xl mb-8">🃏</div>
+                <div className="space-y-4">
+                  <div className="text-xs tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
+                  <h3 className="text-2xl font-medium text-accent-light">{session.tarotCard.name}</h3>
+                  <p className="text-xs text-text-dim italic leading-relaxed">{session.tarotCard.meaning}</p>
+                </div>
+              </div>
+            ) : (
+              <button 
+                onClick={() => drawTarot()}
+                className="w-full h-full rounded-2xl border-2 border-white/10 bg-white/5 flex flex-col items-center justify-center gap-6 hover:border-accent/50 hover:bg-accent/5 transition-all duration-700 group-hover:scale-[1.02] shadow-xl"
+              >
+                <div className="text-4xl opacity-40 group-hover:opacity-100 transition-opacity">✨</div>
+                <div className="text-xs tracking-widest uppercase text-text-dim group-hover:text-accent-light transition-colors">Tap to unveil</div>
+              </button>
+            )}
+          </div>
+
+          {(session.state === DreamFlowState.DONE || session.state === DreamFlowState.TAROT_INTERPRETING) && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+              {isProcessing ? (
+                <div className="text-xs tracking-widest uppercase text-accent-light/60 animate-pulse">Veil is weaving the insight...</div>
+              ) : (
+                <button 
+                  onClick={() => setShowTarotPage(false)}
+                  className="px-8 py-3 rounded-full bg-foreground text-background text-sm tracking-widest uppercase font-medium hover:opacity-90 transition-all"
+                >
+                  Return to descent
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -191,42 +322,13 @@ export default function App() {
           </div>
         ))}
         
-        {isProcessing && session.state !== DreamFlowState.TAROT_DRAWING && (
+        {isProcessing && session.state !== DreamFlowState.TAROT_DRAWING && session.state !== DreamFlowState.TAROT_INTERPRETING && (
           <div className="flex justify-start animate-in fade-in duration-300">
             <div className="bubble bubble-veil">
               <div className="dots">
                 <div className="dot" />
                 <div className="dot" />
                 <div className="dot" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {session.state === DreamFlowState.TAROT_DRAWING && (
-          <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-1000">
-            <div className="relative w-40 h-64 rounded-xl border-2 border-accent/30 bg-black/40 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(var(--accent-rgb),0.2)]">
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-accent/5 to-accent/20 animate-pulse" />
-              <div className="z-10 text-center">
-                <div className="text-4xl mb-4">✨</div>
-                <div className="text-xs tracking-widest uppercase text-accent-light animate-pulse">Drawing a card...</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {session.tarotCard && (session.state === DreamFlowState.INTERPRETING || session.state === DreamFlowState.AWAITING_LIFE_CONNECTION || session.state === DreamFlowState.DONE) && (
-          <div className="flex justify-start animate-in fade-in slide-in-from-left-4 duration-1000">
-            <div className="bubble bubble-veil !bg-accent/10 border border-accent/20">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-24 rounded-lg border border-accent/30 bg-black/40 flex-shrink-0 flex items-center justify-center text-xl shadow-lg">
-                  🃏
-                </div>
-                <div>
-                  <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-1">Drawn Card</div>
-                  <div className="text-lg font-medium text-accent-light mb-1">{session.tarotCard.name}</div>
-                  <div className="text-xs text-text-dim italic leading-relaxed">{session.tarotCard.meaning}</div>
-                </div>
               </div>
             </div>
           </div>
@@ -249,13 +351,47 @@ export default function App() {
           </div>
         )}
 
-        {(session.state === DreamFlowState.AWAITING_LIFE_CONNECTION || session.state === DreamFlowState.DONE) && !isProcessing && (
+        {session.state === DreamFlowState.AWAITING_TAROT_DECISION && !isProcessing && (
+          <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <button 
+              onClick={() => drawTarot()} 
+              className="w-full py-4 bg-accent/20 hover:bg-accent/30 border border-accent/30 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] text-accent-light"
+            >
+              ✨ Draw a Tarot card for final insight
+            </button>
+            <button 
+              onClick={skipTarot} 
+              className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors"
+            >
+              No, I'm ready to save
+            </button>
+          </div>
+        )}
+
+        {(session.state === DreamFlowState.DONE) && !isProcessing && (
           <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {session.interpretation && (
               <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
-                <div className="text-xs tracking-widest text-text-dim uppercase mb-6 opacity-50">Interpretation</div>
+                <div className="text-xs tracking-widest text-text-dim uppercase mb-6 opacity-50">Final Reflections</div>
                 <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 font-light">
                   {renderInterpretation(session.interpretation)}
+                  {session.lifeConnectionInterpretation && (
+                    <>
+                      <div className="my-8 border-t border-white/5 pt-8" />
+                      <div className="text-[10px] tracking-widest text-text-dim/40 uppercase mb-6">Life Connection Insight</div>
+                      {renderInterpretation(session.lifeConnectionInterpretation)}
+                    </>
+                  )}
+                  {session.tarotInterpretation && (
+                    <>
+                      <div className="my-8 border-t border-white/5 pt-8" />
+                      <div className="flex items-center gap-2 text-accent-light mb-6">
+                        <span className="text-xl">🃏</span>
+                        <span className="text-[10px] tracking-widest uppercase font-medium">Tarot Confirmation</span>
+                      </div>
+                      {renderInterpretation(session.tarotInterpretation)}
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-white/5">
