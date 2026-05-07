@@ -5,6 +5,7 @@
   "description": "AI-native dream journaling app. The product starts from dream expression, guides the user to reconstruct the dream with minimal follow-up questions, optionally interprets it in a grounded (non-absolute) way, and saves it to an archive.",
   "dependencies": {
     "dotenv": "^16.6.1",
+    "html-to-image": "^1.11.13",
     "next": "^16.2.5",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useOrchestrator } from "@/lib/useOrchestrator";
 import { DreamFlowState } from "@/lib/dream-model";
+import { toPng } from "html-to-image";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("login"); // login, home, chat, history
@@ -19,7 +20,9 @@ export default function App() {
   } = useOrchestrator();
 
   const [input, setInput] = useState("");
+  const [showPoster, setShowPoster] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const posterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -65,6 +68,19 @@ export default function App() {
     if (success) {
       resetSession();
       setCurrentView("history");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!posterRef.current) return;
+    try {
+      const dataUrl = await toPng(posterRef.current, { cacheBust: true });
+      const link = document.createElement("a");
+      link.download = `dream-${session.title || "unveiled"}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Oops, something went wrong!", err);
     }
   };
 
@@ -175,13 +191,42 @@ export default function App() {
           </div>
         ))}
         
-        {isProcessing && (
+        {isProcessing && session.state !== DreamFlowState.TAROT_DRAWING && (
           <div className="flex justify-start animate-in fade-in duration-300">
             <div className="bubble bubble-veil">
               <div className="dots">
                 <div className="dot" />
                 <div className="dot" />
                 <div className="dot" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {session.state === DreamFlowState.TAROT_DRAWING && (
+          <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-1000">
+            <div className="relative w-40 h-64 rounded-xl border-2 border-accent/30 bg-black/40 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(var(--accent-rgb),0.2)]">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-accent/5 to-accent/20 animate-pulse" />
+              <div className="z-10 text-center">
+                <div className="text-4xl mb-4">✨</div>
+                <div className="text-xs tracking-widest uppercase text-accent-light animate-pulse">Drawing a card...</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {session.tarotCard && (session.state === DreamFlowState.INTERPRETING || session.state === DreamFlowState.AWAITING_LIFE_CONNECTION || session.state === DreamFlowState.DONE) && (
+          <div className="flex justify-start animate-in fade-in slide-in-from-left-4 duration-1000">
+            <div className="bubble bubble-veil !bg-accent/10 border border-accent/20">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-24 rounded-lg border border-accent/30 bg-black/40 flex-shrink-0 flex items-center justify-center text-xl shadow-lg">
+                  🃏
+                </div>
+                <div>
+                  <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-1">Drawn Card</div>
+                  <div className="text-lg font-medium text-accent-light mb-1">{session.tarotCard.name}</div>
+                  <div className="text-xs text-text-dim italic leading-relaxed">{session.tarotCard.meaning}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -230,6 +275,13 @@ export default function App() {
                   Save into Archive
                 </button>
                 <button 
+                  onClick={() => setShowPoster(true)} 
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                  Share Dream Poster
+                </button>
+                <button 
                   onClick={handleDiscard} 
                   className="w-full py-4 text-red-400/50 hover:text-red-400 text-xs transition-colors"
                 >
@@ -241,6 +293,62 @@ export default function App() {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Poster Modal */}
+      {showPoster && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative w-full max-w-sm flex flex-col items-center gap-6">
+            <button 
+              onClick={() => setShowPoster(false)}
+              className="absolute -top-12 right-0 text-white/50 hover:text-white p-2 transition-colors"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            
+            <div ref={posterRef} className="w-full aspect-[3/4] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl">
+              <div className="bg-glow opacity-30" />
+              <div className="z-10 flex flex-col h-full">
+                <div className="text-[10px] tracking-[0.4em] text-text-dim uppercase mb-12">Veil • Dream Record</div>
+                
+                <h2 className="text-2xl font-light mb-8 leading-tight">{session.title || "Untitled Dream"}</h2>
+                
+                <div className="flex-1 space-y-6">
+                  <div className="space-y-2">
+                    <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">The Narrative</div>
+                    <p className="text-sm font-light text-foreground/80 line-clamp-[8] leading-relaxed">
+                      {session.summary}
+                    </p>
+                  </div>
+                  
+                  {session.tarotCard && (
+                    <div className="pt-6 border-t border-white/5 flex gap-4">
+                      <div className="w-12 h-18 rounded border border-accent/30 bg-black/40 flex-shrink-0 flex items-center justify-center text-lg">🃏</div>
+                      <div>
+                        <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Guidance</div>
+                        <div className="text-sm font-medium text-accent-light">{session.tarotCard.name}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-8 flex justify-between items-end">
+                  <div className="text-[10px] text-text-dim/30">
+                    {new Date().toLocaleDateString()}
+                  </div>
+                  <div className="text-[10px] tracking-widest text-text-dim/30 uppercase">Unveil your subconscious</div>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleShare}
+              className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98] shadow-xl"
+            >
+              Download Poster
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Input Area */}
       {(session.state === DreamFlowState.RAW || 

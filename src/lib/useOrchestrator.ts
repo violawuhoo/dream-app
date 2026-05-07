@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
 import { callLLM } from "./llm-client";
-import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages } from "./llm-prompts";
+import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages, buildLifeConnectionQuestionMessages } from "./llm-prompts";
+import { getRandomTarotCard } from "./tarot-data";
 
 const DONE_PATTERNS = [
   "nope", "nah", "no", "nothing else", "that's it for now", "nothing more", "i'm done", "im done", "finish", "done",
@@ -101,8 +102,17 @@ export function useOrchestrator() {
   const generateInterpretation = async () => {
     setIsProcessing(true);
     try {
-      updateSession({ state: DreamFlowState.INTERPRETING });
-      const prompts = buildInterpretationMessages({ session });
+      // Step 1: Tarot Drawing
+      updateSession({ state: DreamFlowState.TAROT_DRAWING });
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Delay for effect
+      const tarotCard = getRandomTarotCard();
+      
+      // Update session with tarot card and move to interpreting
+      const sessionWithTarot = { ...session, tarotCard, state: DreamFlowState.INTERPRETING };
+      updateSession({ tarotCard, state: DreamFlowState.INTERPRETING });
+
+      // Step 2: Interpretation with Tarot
+      const prompts = buildInterpretationMessages({ session: sessionWithTarot });
       const interpretation = await callLLM(prompts, 0.7);
       
       updateSession({ 
@@ -110,14 +120,26 @@ export function useOrchestrator() {
         state: DreamFlowState.AWAITING_LIFE_CONNECTION 
       });
 
-      // 3 second delay for the life connection question
-      setTimeout(() => {
-        const question = "How does this land with you? Does any part of this mirror your waking life?";
-        setSession((prev: any) => ({
-          ...prev,
-          messages: [...prev.messages, { role: "assistant", content: question }]
-        }));
-      }, 3000);
+      // 5 second delay for the personalized life connection question
+      setTimeout(async () => {
+        try {
+          const questionPrompts = buildLifeConnectionQuestionMessages({ session, interpretation });
+          const question = await callLLM(questionPrompts, 0.7);
+          
+          setSession((prev: any) => ({
+            ...prev,
+            messages: [...prev.messages, { role: "assistant", content: question }]
+          }));
+        } catch (err) {
+          console.error("Failed to generate life connection question:", err);
+          // Fallback question
+          const fallback = "How does this land with you? Does any part of this mirror your waking life?";
+          setSession((prev: any) => ({
+            ...prev,
+            messages: [...prev.messages, { role: "assistant", content: fallback }]
+          }));
+        }
+      }, 5000);
 
     } catch (e) {
       console.error(e);
