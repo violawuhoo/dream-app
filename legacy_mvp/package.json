@@ -1,0 +1,17 @@
+{
+  "name": "dream-app-mvp",
+  "version": "0.1.0",
+  "description": "An AI-native dream journaling app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  },
+  "keywords": ["dream", "journal", "ai", "llm"],
+  "author": "",
+  "license": "MIT"
+}

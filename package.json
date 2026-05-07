@@ -1,17 +1,39 @@
 {
-  "name": "dream-app-mvp",
-  "version": "0.1.0",
-  "description": "An AI-native dream journaling app",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js"
-  },
+  "name": "playground",
+  "version": "1.0.0",
+  "description": "AI-native dream journaling app. The product starts from dream expression, guides the user to reconstruct the dream with minimal follow-up questions, optionally interprets it in a grounded (non-absolute) way, and saves it to an archive.",
+  "main": "index.js",
   "dependencies": {
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.6.1",
+    "next": "^16.2.5",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
-  "keywords": ["dream", "journal", "ai", "llm"],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/violawuhoo/dream-app.git"
+  },
+  "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/violawuhoo/dream-app/issues"
+  },
+  "homepage": "https://github.com/violawuhoo/dream-app#readme",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^6.0.3"
+  }
 }
