@@ -96,8 +96,11 @@ export default function App() {
    const renderInterpretation = (text: string) => {
      if (!text) return null;
      
+     // Remove all asterisks from the entire text
+     const cleanText = text.replace(/\*/g, "");
+     
      // Split by one or more newlines
-     return text.split(/\n+/).map((paragraph, idx) => {
+     return cleanText.split(/\n+/).map((paragraph, idx) => {
        if (!paragraph.trim()) return null;
        
        // Handle format "Title: Content"
@@ -107,14 +110,14 @@ export default function App() {
          const content = paragraph.substring(colonIndex + 1);
          return (
            <div key={idx} className="mb-6 last:mb-0">
-             <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2">{title}</div>
-             <p className="text-sm leading-relaxed font-light text-foreground/90">{content.trim()}</p>
+             <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic">{title.trim()}</div>
+             <p className="text-sm leading-relaxed font-light text-foreground/90 text-justify">{content.trim()}</p>
            </div>
          );
        }
 
        return (
-         <p key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90">
+         <p key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90 text-justify">
            {paragraph}
          </p>
        );
