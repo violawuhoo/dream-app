@@ -1,8 +1,8 @@
 {
   "name": "playground",
   "version": "1.0.0",
+  "type": "module",
   "description": "AI-native dream journaling app. The product starts from dream expression, guides the user to reconstruct the dream with minimal follow-up questions, optionally interprets it in a grounded (non-absolute) way, and saves it to an archive.",
-  "main": "index.js",
   "dependencies": {
     "dotenv": "^16.6.1",
     "next": "^16.2.5",
