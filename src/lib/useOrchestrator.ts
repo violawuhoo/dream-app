@@ -73,7 +73,7 @@ export function useOrchestrator() {
 
   const askFollowUp = async (currentSession: any) => {
     // Artificial delay for "thinking"
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     const prompts = buildExpansionMessages({ session: currentSession, latestUserMessage: currentSession.messages[currentSession.messages.length - 1].content });
     const response = await callLLM(prompts, 0.7);

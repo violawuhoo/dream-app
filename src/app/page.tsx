@@ -131,7 +131,7 @@ export default function App() {
       <div className="flex-1 overflow-y-auto pb-40 space-y-8 px-6 pt-8 scroll-smooth z-0">
         {session.messages.length === 0 && (
           <div className="text-center text-text-dim mt-20 font-light italic opacity-50">
-            Tell me what you remember...
+            Tell it as it comes back to you. I will stay close to the shape of it.
           </div>
         )}
 
