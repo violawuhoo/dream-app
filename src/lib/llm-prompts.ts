@@ -1,5 +1,5 @@
-function formatRecentMessages(messages: any[]) {
-  return messages
+// Veil: Professional Dream Analysis Prompts
+export function formatRecentMessages(messages: any[]) {  return messages
     .slice(-10)
     .map((message: any) => `${message.role.toUpperCase()}: ${message.content}`)
     .join("\\n");
