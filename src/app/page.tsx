@@ -35,13 +35,12 @@ export default function App() {
   }, [session.messages, session.state]);
 
   useEffect(() => {
-    if (session.state === DreamFlowState.TAROT_DRAWING) {
+    if (session.state === DreamFlowState.TAROT_DRAWING || session.state === DreamFlowState.TAROT_INTERPRETING) {
       setShowTarotPage(true);
     } else if (session.state === DreamFlowState.DONE && showTarotPage) {
-      // Keep tarot page visible for a moment then maybe close or just let user see results
-      // Actually, if it's a "page", we should probably show the results on that page
+      // Keep it open
     }
-  }, [session.state]);
+  }, [session.state, showTarotPage]);
 
   const handleLogin = (provider: string) => {
     setCurrentView("home");
@@ -80,9 +79,34 @@ export default function App() {
   };
 
   const handleShare = async () => {
+    // Auto-save if not already done
+    if (session.state === DreamFlowState.DONE) {
+      await saveRecord();
+    }
+
     if (!posterRef.current) return;
     try {
       const dataUrl = await toPng(posterRef.current, { cacheBust: true });
+      
+      // Try Web Share API if available
+      if (navigator.share && navigator.canShare) {
+        try {
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], `dream-${session.title || "unveiled"}.png`, { type: "image/png" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: session.title || "My Dream",
+              text: "I unveiled my dream with Veil."
+            });
+            return; // Successfully shared
+          }
+        } catch (shareErr) {
+          console.log("Web Share failed, falling back to download", shareErr);
+        }
+      }
+
+      // Fallback to download
       const link = document.createElement("a");
       link.download = `dream-${session.title || "unveiled"}.png`;
       link.href = dataUrl;
@@ -377,7 +401,7 @@ export default function App() {
         {session.state === DreamFlowState.AWAITING_TAROT_DECISION && !isProcessing && (
           <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <button 
-              onClick={() => drawTarot()} 
+              onClick={() => setShowTarotPage(true)} 
               className="w-full py-4 bg-accent/20 hover:bg-accent/30 border border-accent/30 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] text-accent-light"
             >
               ✨ Draw a Tarot card for final insight
@@ -458,55 +482,63 @@ export default function App() {
       {/* Poster Modal */}
       {showPoster && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-sm flex flex-col items-center gap-6">
-            <button 
-              onClick={() => setShowPoster(false)}
-              className="absolute -top-12 right-0 text-white/50 hover:text-white p-2 transition-colors"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            
-            <div ref={posterRef} className="w-full aspect-[3/4] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl">
+          <div className="relative w-full max-w-sm flex flex-col items-center gap-4">
+            <div ref={posterRef} className="w-full aspect-[3/4.5] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl">
               <div className="bg-glow opacity-30" />
               <div className="z-10 flex flex-col h-full">
-                <div className="text-[10px] tracking-[0.4em] text-text-dim uppercase mb-12">Veil • Dream Record</div>
+                <div className="text-[10px] tracking-[0.4em] text-text-dim uppercase mb-10">Veil • Dream Record</div>
                 
-                <h2 className="text-2xl font-light mb-8 leading-tight">{session.title || "Untitled Dream"}</h2>
+                <h2 className="text-2xl font-light mb-6 leading-tight italic">{session.title || "Untitled Dream"}</h2>
                 
-                <div className="flex-1 space-y-6">
+                <div className="flex-1 space-y-6 overflow-hidden">
                   <div className="space-y-2">
-                    <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">The Narrative</div>
-                    <p className="text-sm font-light text-foreground/80 line-clamp-[8] leading-relaxed">
-                      {session.summary}
+                    <div className="text-[8px] tracking-[0.2em] text-text-dim/40 uppercase">The Narrative</div>
+                    <p className="text-xs font-light text-foreground/80 line-clamp-[6] leading-relaxed italic">
+                      "I dreamed {session.summary.charAt(0).toLowerCase() + session.summary.slice(1)}"
                     </p>
                   </div>
                   
                   {session.tarotCard && (
-                    <div className="pt-6 border-t border-white/5 flex gap-4">
-                      <div className="w-12 h-18 rounded border border-accent/30 bg-black/40 flex-shrink-0 flex items-center justify-center text-lg">🃏</div>
-                      <div>
-                        <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Guidance</div>
-                        <div className="text-sm font-medium text-accent-light">{session.tarotCard.name}</div>
+                    <div className="pt-4 border-t border-white/5 flex flex-col items-center gap-3">
+                      <div className="w-10 h-16 rounded border border-accent/30 bg-black/40 flex items-center justify-center text-xl shadow-lg shadow-accent/5">🃏</div>
+                      <div className="text-center">
+                        <div className="text-[8px] tracking-widest text-accent-light/60 uppercase mb-1">The Oracle's Sign</div>
+                        <div className="text-xs font-medium text-accent-light tracking-wide">{session.tarotCard.name}</div>
                       </div>
                     </div>
                   )}
+
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="text-[8px] tracking-widest text-text-dim/40 uppercase mb-2">The Unveiling</div>
+                    <div className="text-[11px] leading-relaxed font-light text-foreground/90 text-justify line-clamp-4 italic opacity-80">
+                      {session.interpretation.split('\n')[0].replace(/.*:/, '').trim()}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-auto pt-8 flex justify-between items-end">
-                  <div className="text-[10px] text-text-dim/30">
+                <div className="mt-auto pt-6 flex justify-between items-end">
+                  <div className="text-[8px] text-text-dim/30">
                     {new Date().toLocaleDateString()}
                   </div>
-                  <div className="text-[10px] tracking-widest text-text-dim/30 uppercase">Unveil your subconscious</div>
+                  <div className="text-[8px] tracking-widest text-text-dim/30 uppercase">Unveil your subconscious</div>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={handleShare}
-              className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98] shadow-xl"
-            >
-              Download Poster
-            </button>
+            <div className="w-full flex flex-col gap-2 mt-2">
+              <button 
+                onClick={handleShare}
+                className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98] shadow-xl"
+              >
+                Share / Download
+              </button>
+              <button 
+                onClick={() => setShowPoster(false)}
+                className="w-full py-3 text-text-dim hover:text-foreground text-xs transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
