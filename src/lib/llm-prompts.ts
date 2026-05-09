@@ -89,19 +89,19 @@ STRICT RULES:
 5. Tone: Gentle, healing, neutral, and non-academic. Use tentative language (e.g., "suggests", "mirrors").
 
 FIXED OUTPUT STRUCTURE:
-Key Symbols and Imagery: Interpret the 2-3 most significant symbols/scenes/emotions based on Western cultural and universal psychological standards.
-Deep Subconscious Analysis: Analyze the user's hidden pressures, suppressed emotions, or psychological knots from Jungian/Freudian perspectives.
-Eastern Philosophical Insight: Provide a macro view on the dream's energy flow—inner balance and self-harmony—without judging specific objects or omens.
-Holistic Mindset and Life Guidance: Offer gentle, neutral, and healing suggestions for emotional adjustment and self-awareness.
+Key Symbols and Imagery: Interpret the 2-3 most significant symbols/scenes/emotions. Keep it extremely concise (max 2 sentences).
+Deep Subconscious Analysis: Analyze hidden pressures or psychological knots. Keep it extremely concise (max 2 sentences).
+Eastern Philosophical Insight: Provide a macro view on energy flow and inner balance. Keep it extremely concise (max 2 sentences).
+Holistic Mindset and Life Guidance: Offer gentle suggestions for adjustment. Keep it extremely concise (max 2 sentences).
 
-CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
+CRITICAL: Each section must be 40% shorter than usual. Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
     },
     {
       role: "user",
       content: [
         "Dream Summary:",
         summary,
-        "Provide the focused 4-part interpretation now, selecting the 2-3 most representative elements.",
+        "Provide the focused 4-part interpretation now. Be very brief.",
       ].join("\n\n"),
     },
   ];
@@ -118,10 +118,11 @@ STRICT RULES:
 1. No fatalism, no omens, no superstition. 
 2. Follow Western cultural symbols.
 3. Tone: Gentle, healing, objective, and grounded.
+4. BREVITY: Each section must be 40% shorter than usual.
 
 FIXED OUTPUT STRUCTURE (Strictly only these two sections):
-Integrated Resonance: Deeply connect all core dream symbols, scenes, and emotions to the shared life event. Map each element specifically to the user's current situation, hidden emotions, or unspoken pressures. Be specific and avoid vague generalities.
-Actionable Insight: Provide concrete, practical, and immediate actions or mindset adjustments. Avoid generic "soul soup" or abstract advice. Give clear, grounded steps the user can take right now.
+Integrated Resonance: Deeply connect core dream symbols to the life event. Map elements specifically to the user's situation. Max 3 sentences.
+Actionable Insight: Provide concrete, practical, and immediate actions. Max 2 sentences.
 
 CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
     },
@@ -134,7 +135,7 @@ CRITICAL: Do not use any markdown formatting like * or #. Use the exact format '
         session.interpretation,
         "User's Life Context:",
         lifeEvent,
-        "Provide the focused 2-part life-connection mapping and actionable guidance now.",
+        "Provide the focused 2-part life-connection mapping and actionable guidance now. Be very brief.",
       ].join("\n\n"),
     },
   ];

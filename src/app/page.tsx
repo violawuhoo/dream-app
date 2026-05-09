@@ -5,6 +5,24 @@ import { useOrchestrator } from "@/lib/useOrchestrator";
 import { DreamFlowState } from "@/lib/dream-model";
 import { toPng } from "html-to-image";
 
+// Streaming Text Component
+function StreamingText({ text, speed = 20 }: { text: string; speed?: number }) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (index < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText((prev) => prev + text[index]);
+        setIndex((prev) => prev + 1);
+      }, speed);
+      return () => clearTimeout(timeout);
+    }
+  }, [index, text, speed]);
+
+  return <>{displayedText}</>;
+}
+
 export default function App() {
   const [currentView, setCurrentView] = useState("login"); // login, home, chat, history
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -71,6 +89,7 @@ export default function App() {
   };
 
   const handleSave = async () => {
+    // Already has title generation in saveRecord
     const success = await saveRecord();
     if (success) {
       resetSession();
@@ -116,34 +135,33 @@ export default function App() {
     }
   };
 
-  // Helper to render interpretation with basic markdown support
-   const renderInterpretation = (text: string) => {
+  // Helper to render interpretation with streaming effect
+   const renderInterpretation = (text: string, isNew: boolean = false) => {
      if (!text) return null;
      
-     // Remove all asterisks from the entire text
      const cleanText = text.replace(/\*/g, "");
      
-     // Split by one or more newlines
      return cleanText.split(/\n+/).map((paragraph, idx) => {
        if (!paragraph.trim()) return null;
        
-       // Handle format "Title: Content"
        const colonIndex = paragraph.indexOf(":");
-       if (colonIndex > 0 && colonIndex < 40) { // Assume titles are short
+       if (colonIndex > 0 && colonIndex < 40) {
          const title = paragraph.substring(0, colonIndex);
          const content = paragraph.substring(colonIndex + 1);
          return (
            <div key={idx} className="mb-6 last:mb-0">
              <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic">{title.trim()}</div>
-             <p className="text-sm leading-relaxed font-light text-foreground/90 text-justify">{content.trim()}</p>
+             <div className="text-sm leading-relaxed font-light text-foreground/90 text-justify">
+               {isNew ? <StreamingText text={content.trim()} /> : content.trim()}
+             </div>
            </div>
          );
        }
 
        return (
-         <p key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90 text-justify">
-           {paragraph}
-         </p>
+         <div key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90 text-justify">
+           {isNew ? <StreamingText text={paragraph} /> : paragraph}
+         </div>
        );
      });
    };
@@ -285,30 +303,32 @@ export default function App() {
 
           <div className="relative w-full h-80 flex items-center justify-center perspective-1000">
             {session.state === DreamFlowState.TAROT_DRAWING ? (
-              <div className="w-48 h-72 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
+              <div className="w-64 h-36 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
                 <div className="text-4xl">✨</div>
               </div>
             ) : session.tarotCard ? (
-              <div className="w-48 h-72 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl overflow-y-auto">
-                <div className="text-4xl mb-4">🃏</div>
-                <div className="space-y-3">
+              <div className="w-64 h-36 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
+                <div className="text-2xl mb-2">🃏</div>
+                <div className="space-y-2">
                   <div className="text-[10px] tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
-                  <h3 className="text-xl font-medium text-accent-light">{session.tarotCard.name}</h3>
-                  <div className="text-[10px] text-text-dim italic leading-relaxed border-t border-white/5 pt-2">
-                    {session.tarotCard.meaning}
-                  </div>
+                  <h3 className="text-lg font-medium text-accent-light">{session.tarotCard.name}</h3>
                 </div>
               </div>
             ) : (
-              <div className="relative w-full h-full flex items-center justify-center">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <button
-                    key={i}
-                    onClick={() => drawTarot()}
-                    className={`absolute w-40 h-64 rounded-xl tarot-card-back shadow-xl transition-all duration-500 hover:-translate-y-4 hover:border-accent/60 animate-fan-${i} active:scale-95`}
-                    style={{ zIndex: 5 - Math.abs(2 - i) }}
-                  />
-                ))}
+              <div className="tarot-fan-container">
+                <div className="tarot-fan-inner">
+                  {Array.from({ length: 23 }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => drawTarot()}
+                      className="tarot-card-item tarot-card-back"
+                      style={{ 
+                        zIndex: i,
+                        transform: `rotate(${(i - 11) * 2}deg) translateY(${Math.abs(i - 11) * 2}px)`
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -421,13 +441,13 @@ export default function App() {
               <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
                 <div className="text-xs tracking-widest text-text-dim uppercase mb-6 opacity-50">Final Reflections</div>
                 <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 font-light">
-                  {renderInterpretation(session.interpretation)}
+                  {renderInterpretation(session.interpretation, true)}
                   {session.lifeConnectionInterpretation && (
                     <>
                       <div className="my-8 border-t border-white/5 pt-8" />
                       <div className="text-[10px] tracking-widest text-text-dim/40 uppercase mb-6">Life Connection Insight</div>
                       <div className="text-sm leading-relaxed font-light">
-                        {renderInterpretation(session.lifeConnectionInterpretation)}
+                        {renderInterpretation(session.lifeConnectionInterpretation, true)}
                       </div>
                     </>
                   )}
@@ -438,7 +458,7 @@ export default function App() {
                         <span className="text-xl">🃏</span>
                         <span className="text-[10px] tracking-widest uppercase font-medium">Tarot Confirmation</span>
                       </div>
-                      {renderInterpretation(session.tarotInterpretation)}
+                      {renderInterpretation(session.tarotInterpretation, true)}
                     </>
                   )}
                 </div>
@@ -494,7 +514,7 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="text-[8px] tracking-[0.2em] text-text-dim/40 uppercase">The Narrative</div>
                     <p className="text-xs font-light text-foreground/80 line-clamp-[6] leading-relaxed italic">
-                      "I dreamed {session.summary.charAt(0).toLowerCase() + session.summary.slice(1)}"
+                      "I dreamed {session.summary.replace(/\b[I|i]\s/g, "I ").replace(/^[I|i]\s/, "I ").charAt(0).toLowerCase() + session.summary.slice(1)}"
                     </p>
                   </div>
                   
