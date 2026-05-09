@@ -301,17 +301,17 @@ export default function App() {
             </p>
           </div>
 
-          <div className="relative w-full h-80 flex items-center justify-center perspective-1000">
+          <div className="relative w-full h-96 flex items-center justify-center perspective-1000">
             {session.state === DreamFlowState.TAROT_DRAWING ? (
-              <div className="w-64 h-36 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
+              <div className="w-44 h-80 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
                 <div className="text-4xl">✨</div>
               </div>
             ) : session.tarotCard ? (
-              <div className="w-64 h-36 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
-                <div className="text-2xl mb-2">🃏</div>
-                <div className="space-y-2">
+              <div className="w-44 h-80 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
+                <div className="text-4xl mb-6">🃏</div>
+                <div className="space-y-4">
                   <div className="text-[10px] tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
-                  <h3 className="text-lg font-medium text-accent-light">{session.tarotCard.name}</h3>
+                  <h3 className="text-xl font-medium text-accent-light">{session.tarotCard.name}</h3>
                 </div>
               </div>
             ) : (
