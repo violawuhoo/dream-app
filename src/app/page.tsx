@@ -395,15 +395,18 @@ export default function App() {
 
               {tarotCard && (
                 <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-20 rounded-lg border border-accent-light/30 bg-black/40 flex items-center justify-center text-2xl shadow-lg shadow-accent/5">🃏</div>
+                  <div className="flex items-center gap-6">
+                    <div 
+                      className="w-24 h-44 rounded-xl border border-accent-light/30 bg-black/40 shadow-2xl shadow-accent/5 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${tarotCard.image})` }}
+                    />
                     <div className="space-y-1">
                       <div className="text-[10px] tracking-widest text-accent-light/60 uppercase font-bold italic"><i><b>Tarot Confirmation</b></i></div>
-                      <div className="text-xl font-medium text-accent-light">{tarotCard.name}</div>
+                      <div className="text-2xl font-medium text-accent-light uppercase tracking-tight">{tarotCard.name}</div>
                     </div>
                   </div>
                   {tarotInterpretation && (
-                    <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
+                    <div className="text-sm leading-relaxed font-light text-foreground/90 italic pt-6 border-t border-white/5">
                       {renderInterpretation(tarotInterpretation, false)}
                     </div>
                   )}
@@ -517,10 +520,14 @@ export default function App() {
                       }}
                     >
                       {hasRevealed && (
-                        <div className="tarot-card-front animate-in fade-in duration-1000 flex flex-col items-center justify-center p-4 text-center">
-                          <div className="text-4xl mb-4">🃏</div>
-                          <div className="text-[10px] tracking-[0.2em] uppercase text-accent-light/60 mb-2">The Oracle's Sign</div>
-                          <h3 className="text-lg font-medium text-accent-light leading-tight">{session.tarotCard.name}</h3>
+                        <div 
+                          className="absolute inset-0 tarot-card-revealed animate-in fade-in duration-1000 flex flex-col items-center justify-end p-6 text-center"
+                          style={{ backgroundImage: `url(${session.tarotCard.image})` }}
+                        >
+                          <div className="bg-black/40 backdrop-blur-md p-3 rounded-xl border border-white/10 w-full">
+                            <div className="text-[8px] tracking-[0.2em] uppercase text-accent-light/60 mb-1">The Oracle's Sign</div>
+                            <h3 className="text-sm font-medium text-accent-light leading-tight uppercase">{session.tarotCard.name}</h3>
+                          </div>
                         </div>
                       )}
                       {isSelected && !hasRevealed && (
@@ -680,8 +687,11 @@ export default function App() {
                   {session.tarotInterpretation && (
                     <>
                       <div className="my-8 border-t border-white/5 pt-8" />
-                      <div className="flex items-center gap-2 text-accent-light mb-6">
-                        <span className="text-xl">🃏</span>
+                      <div className="flex items-center gap-4 text-accent-light mb-6">
+                        <div 
+                          className="w-12 h-20 rounded border border-accent-light/20 bg-cover bg-center"
+                          style={{ backgroundImage: `url(${session.tarotCard.image})` }}
+                        />
                         <span className="text-[10px] tracking-widest uppercase font-medium">Tarot Confirmation</span>
                       </div>
                       {renderInterpretation(session.tarotInterpretation, true)}
