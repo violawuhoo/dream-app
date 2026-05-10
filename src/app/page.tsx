@@ -43,6 +43,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [showPoster, setShowPoster] = useState(false);
   const [showTarotPage, setShowTarotPage] = useState(false);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -60,12 +61,18 @@ export default function App() {
     }
   }, [session.state, showTarotPage]);
 
+  const handleDrawTarot = (index: number) => {
+    setSelectedCardIndex(index);
+    drawTarot();
+  };
+
   const handleLogin = (provider: string) => {
     setCurrentView("home");
   };
 
   const startChat = () => {
     resetSession();
+    setSelectedCardIndex(null);
     setCurrentView("chat");
   };
 
@@ -85,6 +92,7 @@ export default function App() {
 
   const handleDiscard = () => {
     resetSession();
+    setSelectedCardIndex(null);
     setCurrentView("home");
   };
 
@@ -93,6 +101,7 @@ export default function App() {
     const success = await saveRecord();
     if (success) {
       resetSession();
+      setSelectedCardIndex(null);
       setCurrentView("history");
     }
   };
@@ -302,35 +311,42 @@ export default function App() {
           </div>
 
           <div className="relative w-full h-96 flex items-center justify-center perspective-1000">
-            {session.state === DreamFlowState.TAROT_DRAWING ? (
-              <div className="w-44 h-80 rounded-2xl border-2 border-accent/30 bg-black/40 flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]">
-                <div className="text-4xl">✨</div>
-              </div>
-            ) : session.tarotCard ? (
-              <div className="w-44 h-80 rounded-2xl border border-accent/50 bg-accent/5 p-6 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 shadow-2xl">
-                <div className="text-4xl mb-6">🃏</div>
-                <div className="space-y-4">
-                  <div className="text-[10px] tracking-[0.3em] uppercase text-accent-light/60">The Drawn Card</div>
-                  <h3 className="text-xl font-medium text-accent-light">{session.tarotCard.name}</h3>
-                </div>
-              </div>
-            ) : (
-              <div className="tarot-fan-container">
-                <div className="tarot-fan-inner">
-                  {Array.from({ length: 23 }).map((_, i) => (
+            <div className={`tarot-fan-container ${selectedCardIndex !== null ? 'card-selected' : ''}`}>
+              <div className="tarot-fan-inner">
+                {Array.from({ length: 23 }).map((_, i) => {
+                  const isSelected = selectedCardIndex === i;
+                  const hasRevealed = isSelected && session.tarotCard;
+
+                  return (
                     <button
                       key={i}
-                      onClick={() => drawTarot()}
-                      className="tarot-card-item tarot-card-back"
+                      onClick={() => !isProcessing && handleDrawTarot(i)}
+                      disabled={selectedCardIndex !== null && !isSelected}
+                      className={`tarot-card-item ${isSelected ? 'selected' : ''} ${hasRevealed ? 'revealed' : 'tarot-card-back'}`}
                       style={{ 
-                        zIndex: i,
-                        transform: `rotate(${(i - 11) * 2}deg) translateY(${Math.abs(i - 11) * 2}px)`
+                        zIndex: isSelected ? 100 : i,
+                        transform: isSelected 
+                          ? 'none' 
+                          : `rotate(${(i - 11) * 2}deg) translateY(${Math.abs(i - 11) * 2}px)`
                       }}
-                    />
-                  ))}
-                </div>
+                    >
+                      {hasRevealed && (
+                        <div className="tarot-card-front animate-in fade-in duration-1000 flex flex-col items-center justify-center p-4 text-center">
+                          <div className="text-4xl mb-4">🃏</div>
+                          <div className="text-[10px] tracking-[0.2em] uppercase text-accent-light/60 mb-2">The Oracle's Sign</div>
+                          <h3 className="text-lg font-medium text-accent-light leading-tight">{session.tarotCard.name}</h3>
+                        </div>
+                      )}
+                      {isSelected && !hasRevealed && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-2xl animate-pulse">✨</div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
 
           {session.tarotInterpretation && (
