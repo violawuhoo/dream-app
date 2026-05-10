@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
 import { callLLM } from "./llm-client";
-import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages } from "./llm-prompts";
+import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
 import { getRandomTarotCard } from "./tarot-data";
 
 const DONE_PATTERNS = [
@@ -19,6 +19,14 @@ export function useOrchestrator() {
 
   const updateSession = (updates: any) => {
     setSession((prev: any) => ({ ...prev, ...updates }));
+  };
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const checkIntent = async (text: string) => {
+    const prompts = buildIntentClassificationMessages({ text });
+    const response = await callLLM(prompts, 0);
+    return response.trim().toUpperCase() === "DONE";
   };
 
   const handleUserMessage = async (text: string) => {
@@ -39,17 +47,20 @@ export function useOrchestrator() {
     try {
       const lowerText = text.toLowerCase().trim();
       
-      // Improved isDone detection: only trigger if the message is SHORT and matches a pattern
-      // or if it explicitly asks to summarize. This prevents triggering on "no" inside a dream description.
-      const isDone = lowerText.length < 30 && DONE_PATTERNS.some(p => {
-        const regex = new RegExp(`\\b${p}\\b`, 'i');
-        return regex.test(lowerText);
-      });
-      
-      const isContinue = CONTINUE_PATTERNS.some(p => {
-        const regex = new RegExp(`\\b${p}\\b`, 'i');
-        return regex.test(lowerText);
-      });
+      // Enforce 4-turn minimum. Only check for "done" if turns >= 4.
+      let isDone = false;
+      if (session.userTurnCount + 1 >= 4) {
+        // Keyword check first (fast)
+        const keywordDone = lowerText.length < 30 && DONE_PATTERNS.some(p => {
+          const regex = new RegExp(`\\b${p}\\b`, 'i');
+          return regex.test(lowerText);
+        });
+
+        // If keywords match OR it's a suspicious "summarize" request, use LLM intent classification
+        if (keywordDone || lowerText.includes("summarize") || lowerText.includes("finish")) {
+          isDone = await checkIntent(text);
+        }
+      }
 
       if (session.state === DreamFlowState.AWAITING_CONTINUE_DECISION) {
         if (isDone) {
@@ -62,6 +73,7 @@ export function useOrchestrator() {
         if (isDone) {
           await proceedToStructuring({...session, messages: updatedMessages});
         } else if ((session.userTurnCount + 1) >= session.nextCheckTurn) {
+          await sleep(800); // Uniform pause
           const checkMsg = { role: "assistant", content: "Do you want to add anything else? (Or we can finish and summarize)" };
           updateSession({ 
             messages: [...updatedMessages, checkMsg],
@@ -77,6 +89,7 @@ export function useOrchestrator() {
       }
     } catch (e) {
       console.error(e);
+      await sleep(800);
       const errorMsg = { role: "assistant", content: "Something went wrong. Let's try that again." };
       updateSession({ messages: [...updatedMessages, errorMsg] });
     } finally {
@@ -85,8 +98,7 @@ export function useOrchestrator() {
   };
 
   const askFollowUp = async (currentSession: any) => {
-    // Artificial delay for "thinking"
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await sleep(800); // Uniform pause
     
     const prompts = buildExpansionMessages({ session: currentSession, latestUserMessage: currentSession.messages[currentSession.messages.length - 1].content });
     const response = await callLLM(prompts, 0.7);
@@ -98,7 +110,7 @@ export function useOrchestrator() {
   };
 
   const proceedToStructuring = async (currentSession: any) => {
-    // We don't change state to STRUCTURED immediately to keep it in chat
+    await sleep(800); // Uniform pause
     const prompts = buildStructuredMessages({ session: currentSession });
     const summary = await callLLM(prompts, 0.5);
     
@@ -115,6 +127,7 @@ export function useOrchestrator() {
     setIsProcessing(true);
     try {
       updateSession({ state: DreamFlowState.INTERPRETING });
+      await sleep(800); // Uniform pause
       const prompts = buildInterpretationMessages({ session });
       const interpretation = await callLLM(prompts, 0.7);
       
@@ -143,6 +156,7 @@ export function useOrchestrator() {
         lifeConnection: userResponse 
       });
       
+      await sleep(800); // Uniform pause
       const prompts = buildLifeConnectionInterpretationMessages({ session: { ...session, lifeConnection: userResponse }, lifeEvent: userResponse });
       const lifeConnectionInterpretation = await callLLM(prompts, 0.7);
       
@@ -166,12 +180,13 @@ export function useOrchestrator() {
     setIsProcessing(true);
     try {
       updateSession({ state: DreamFlowState.TAROT_DRAWING });
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Animation delay
+      await sleep(2000); // Animation delay
       
       const tarotCard = getRandomTarotCard();
       const sessionWithCard = { ...session, tarotCard, state: DreamFlowState.TAROT_INTERPRETING };
       updateSession({ tarotCard, state: DreamFlowState.TAROT_INTERPRETING });
       
+      await sleep(800); // Uniform pause
       const prompts = buildTarotInterpretationMessages({ session: sessionWithCard });
       const tarotInterpretation = await callLLM(prompts, 0.7);
       

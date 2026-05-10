@@ -324,10 +324,10 @@ export default function App() {
                       disabled={selectedCardIndex !== null && !isSelected}
                       className={`tarot-card-item ${isSelected ? 'selected' : ''} ${hasRevealed ? 'revealed' : 'tarot-card-back'}`}
                       style={{ 
-                        zIndex: isSelected ? 100 : i,
+                        zIndex: isSelected ? 2000 : 100 - Math.abs(i - 11),
                         transform: isSelected 
-                          ? 'none' 
-                          : `rotate(${(i - 11) * 4}deg) translateX(${(i - 11) * 20}px) translateY(${Math.abs(i - 11) * 5}px)`
+                          ? 'translate(-50%, -50%) scale(1)' 
+                          : `rotate(${(i - 11) * 5}deg) translateX(${(i - 11) * 25}px) translateY(${Math.pow(Math.abs(i - 11), 1.8) * 1.5}px)`
                       }}
                     >
                       {hasRevealed && (

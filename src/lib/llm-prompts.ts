@@ -216,3 +216,16 @@ export function buildTitleMessages({ session }: { session: any }) {
     },
   ];
 }
+
+export function buildIntentClassificationMessages({ text }: { text: string }) {
+  return [
+    {
+      role: "system",
+      content: "You are a classifier. Determine if the user wants to finish describing their dream and move to the summary/interpretation phase. If they say things like 'that's it', 'just summarize', 'no more', 'done', 'nothing else', respond with 'DONE'. Otherwise, respond with 'CONTINUE'. Only output one word."
+    },
+    {
+      role: "user",
+      content: `User message: "${text}"`
+    }
+  ];
+}
