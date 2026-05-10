@@ -327,7 +327,7 @@ export default function App() {
                         zIndex: isSelected ? 100 : i,
                         transform: isSelected 
                           ? 'none' 
-                          : `rotate(${(i - 11) * 2}deg) translateY(${Math.abs(i - 11) * 2}px)`
+                          : `rotate(${(i - 11) * 4}deg) translateX(${(i - 11) * 20}px) translateY(${Math.abs(i - 11) * 5}px)`
                       }}
                     >
                       {hasRevealed && (
