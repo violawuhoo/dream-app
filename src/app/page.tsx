@@ -742,10 +742,10 @@ export default function App() {
           onClick={() => setShowPoster(false)}
         >
           <div 
-            className="relative w-full max-w-sm flex flex-col items-center gap-6"
+            className="relative w-full max-w-sm flex flex-col items-center gap-6 poster-preview-container no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
-            <div ref={posterRef} className="w-full aspect-[3/4.5] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl">
+            <div ref={posterRef} className="w-full aspect-[3/4.5] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl shrink-0">
               <div className="bg-glow opacity-30" />
               <div className="z-10 flex flex-col h-full">
                 <div className="text-[10px] tracking-[0.4em] text-text-dim uppercase mb-10">Veil • Dream Record</div>
@@ -824,7 +824,7 @@ export default function App() {
                 onKeyDown={handleKeyDown}
                 placeholder={session.state === DreamFlowState.AWAITING_LIFE_CONNECTION ? "Your reflection..." : "Unveil your dream fragments..."}
                 disabled={isProcessing}
-                className="flex-1 bg-transparent border-none px-4 py-4 text-sm focus:outline-none resize-none h-14 max-h-32"
+                className="flex-1 bg-transparent border-none px-4 py-4 text-base focus:outline-none resize-none h-14 max-h-32"
                 rows={1}
               />
               <button 

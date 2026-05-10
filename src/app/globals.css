@@ -229,6 +229,17 @@ button:active {
   box-shadow: 0 15px 30px rgba(0,0,0,0.6);
 }
 
+.text-justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.leading-relaxed {
+  line-height: 1.75;
+}
+
 .tarot-card-item.selected {
   position: fixed;
   top: 50%;
@@ -240,12 +251,46 @@ button:active {
   box-shadow: 0 0 80px rgba(211, 186, 160, 0.4);
   border-color: var(--accent-light);
   cursor: default;
-  pointer-events: none; /* Disable all interactions including hover when selected */
+  pointer-events: none;
 }
 
-.tarot-card-item.revealed {
-  background: rgba(211, 186, 160, 0.05);
-  border-color: var(--accent-light);
+/* Tarot Page - Mobile Scaling */
+@media (max-width: 768px) {
+  .tarot-fan-container {
+    height: 320px;
+    padding-bottom: 40px;
+  }
+  
+  .tarot-card-item {
+    width: clamp(70px, 20vw, 100px);
+    height: clamp(124px, 35.5vw, 178px);
+  }
+
+  .tarot-card-item.selected {
+    width: clamp(160px, 80vw, 180px) !important;
+    height: clamp(284px, 142vw, 320px) !important;
+  }
+}
+
+/* Poster Modal Mobile Constraints */
+.poster-preview-container {
+  max-height: 75vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 .tarot-card-item:disabled:not(.selected) {
