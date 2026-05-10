@@ -37,9 +37,19 @@ export function useOrchestrator() {
     setIsProcessing(true);
 
     try {
-      const lowerText = text.toLowerCase();
-      const isDone = DONE_PATTERNS.some(p => lowerText.includes(p));
-      const isContinue = CONTINUE_PATTERNS.some(p => lowerText.includes(p));
+      const lowerText = text.toLowerCase().trim();
+      
+      // Improved isDone detection: only trigger if the message is SHORT and matches a pattern
+      // or if it explicitly asks to summarize. This prevents triggering on "no" inside a dream description.
+      const isDone = lowerText.length < 30 && DONE_PATTERNS.some(p => {
+        const regex = new RegExp(`\\b${p}\\b`, 'i');
+        return regex.test(lowerText);
+      });
+      
+      const isContinue = CONTINUE_PATTERNS.some(p => {
+        const regex = new RegExp(`\\b${p}\\b`, 'i');
+        return regex.test(lowerText);
+      });
 
       if (session.state === DreamFlowState.AWAITING_CONTINUE_DECISION) {
         if (isDone) {
