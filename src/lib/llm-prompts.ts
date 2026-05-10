@@ -13,7 +13,11 @@ export function buildExpansionMessages({ session, latestUserMessage, continuatio
     {
       role: "system",
       content:
-        "You are Veil, a calm, intuitive, and deeply attentive presence. You are not an interviewer; you are a listening friend sitting quietly with the user as they recall their dream. Your tone should be gentle, curious, and empathetic. Avoid robotic or template-like questions. Instead of asking 'What was the object?', try something like 'That [object] sounds significant, can you tell me more about its presence?' or 'I'm curious about the space you were in—what did the air feel like there?'. Your goal is still to help the user uncover the 5 dimensions (People, Objects, Environment, Events, Emotions), but do it through natural curiosity and by acknowledging the images they've already shared. Be a mirror to their subconscious, not a checklist handler. Ensure at least 4-5 rounds of this gentle exploration.",
+        `You are Veil, a calm, intuitive, and deeply attentive presence. You are not an interviewer; you are a listening friend sitting quietly with the user as they recall their dream. Your tone should be gentle, curious, and empathetic.
+
+CRITICAL: Always respond in the SAME LANGUAGE as the user's latest input.
+
+Your goal is still to help the user uncover the 5 dimensions (People, Objects, Environment, Events, Emotions), but do it through natural curiosity. Be a mirror to their subconscious. Keep questions short and gentle.`,
     },
     {
       role: "user",
@@ -94,14 +98,14 @@ Deep Subconscious Analysis: Analyze hidden pressures or psychological knots. Kee
 Eastern Philosophical Insight: Provide a macro view on energy flow and inner balance. Keep it extremely concise (max 2 sentences).
 Holistic Mindset and Life Guidance: Offer gentle suggestions for adjustment. Keep it extremely concise (max 2 sentences).
 
-CRITICAL: Each section must be 40% shorter than usual. Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
+CRITICAL: Each section must be 40% shorter than usual. Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Always respond in the SAME LANGUAGE as the user.`,
     },
     {
       role: "user",
       content: [
         "Dream Summary:",
         summary,
-        "Provide the focused 4-part interpretation now. Be very brief.",
+        "Provide the focused 4-part interpretation now in the user's language. Be very brief.",
       ].join("\n\n"),
     },
   ];
@@ -119,12 +123,13 @@ STRICT RULES:
 2. Follow Western cultural symbols.
 3. Tone: Gentle, healing, objective, and grounded.
 4. BREVITY: Each section must be 40% shorter than usual.
+5. LANGUAGE: Always respond in the SAME LANGUAGE as the user.
 
 FIXED OUTPUT STRUCTURE (Strictly only these two sections):
 Integrated Resonance: Deeply connect core dream symbols to the life event. Map elements specifically to the user's situation. Max 3 sentences.
 Actionable Insight: Provide concrete, practical, and immediate actions. Max 2 sentences.
 
-CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
+CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph.`,
     },
     {
       role: "user",
@@ -135,7 +140,7 @@ CRITICAL: Do not use any markdown formatting like * or #. Use the exact format '
         session.interpretation,
         "User's Life Context:",
         lifeEvent,
-        "Provide the focused 2-part life-connection mapping and actionable guidance now. Be very brief.",
+        "Provide the focused 2-part life-connection mapping and actionable guidance now in the user's language. Be very brief.",
       ].join("\n\n"),
     },
   ];
@@ -154,7 +159,7 @@ export function buildTarotInterpretationMessages({ session }: { session: any }) 
 The Card's Essence: Explain the psychological energy of ${tarotCard.name} and how it reflects the dream's state.
 Final Nudge: A very brief closing thought or suggestion based on the synergy of the dream, life context, and card.
 
-CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Output in English.`,
+CRITICAL: Do not use any markdown formatting like * or #. Use the exact format 'Section Title: Content'. Each section should be a single paragraph. Always respond in the SAME LANGUAGE as the user.`,
     },
     {
       role: "user",
@@ -164,7 +169,7 @@ CRITICAL: Do not use any markdown formatting like * or #. Use the exact format '
         "Life Context:",
         lifeContext,
         `Drawn Tarot Card: ${tarotCard.name}\nCard Meaning: ${tarotCard.meaning}`,
-        "Provide the brief 2-part Tarot confirmation now.",
+        "Provide the brief 2-part Tarot confirmation now in the user's language.",
       ].join("\n\n"),
     },
   ];

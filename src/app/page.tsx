@@ -379,15 +379,26 @@ export default function App() {
           </div>
         )}
 
-        {session.messages.map((msg: any, i: number) => (
-          <div key={i} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
-            <div className={`bubble ${
-              msg.role === "user" ? "bubble-user shadow-lg shadow-black/20" : "bubble-veil"
-            }`}>
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+        {session.messages.map((msg: any, i: number) => {
+          const isLastMessage = i === session.messages.length - 1;
+          const isAssistant = msg.role === "assistant";
+          
+          return (
+            <div key={i} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
+              <div className={`bubble ${
+                msg.role === "user" ? "bubble-user shadow-lg shadow-black/20" : "bubble-veil"
+              }`}>
+                <div className="whitespace-pre-wrap leading-relaxed">
+                  {isAssistant && isLastMessage && !isProcessing ? (
+                    <StreamingText text={msg.content} />
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         
         {isProcessing && session.state !== DreamFlowState.TAROT_DRAWING && session.state !== DreamFlowState.TAROT_INTERPRETING && (
           <div className="flex justify-start animate-in fade-in duration-300">
