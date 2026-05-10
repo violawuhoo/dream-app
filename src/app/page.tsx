@@ -5,27 +5,45 @@ import { useOrchestrator } from "@/lib/useOrchestrator";
 import { DreamFlowState } from "@/lib/dream-model";
 import { toPng } from "html-to-image";
 
-// Streaming Text Component
-function StreamingText({ text, speed = 20 }: { text: string; speed?: number }) {
+// Streaming Text Component with paragraph support
+function StreamingText({ 
+  text, 
+  speed = 20, 
+  onComplete,
+  active = true 
+}: { 
+  text: string; 
+  speed?: number; 
+  onComplete?: () => void;
+  active?: boolean;
+}) {
   const [displayedText, setDisplayedText] = useState("");
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    if (!active) return;
+    
     if (index < text.length) {
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[index]);
         setIndex((prev) => prev + 1);
       }, speed);
       return () => clearTimeout(timeout);
+    } else if (onComplete) {
+      onComplete();
     }
-  }, [index, text, speed]);
+  }, [index, text, speed, onComplete, active]);
 
   return <>{displayedText}</>;
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState("login"); // login, home, chat, history
+  const [currentView, setCurrentView] = useState("login"); // login, home, chat, history, summary
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [isNewSession, setIsNewSession] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [streamingParagraphIndex, setStreamingParagraphIndex] = useState(0);
+
   const { 
     session, 
     isProcessing, 
@@ -47,6 +65,13 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
+  // Helper to handle paragraph streaming completion
+  const handleParagraphComplete = () => {
+    setTimeout(() => {
+      setStreamingParagraphIndex(prev => prev + 1);
+    }, 400); // 400ms delay between paragraphs
+  };
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -57,9 +82,17 @@ export default function App() {
     if (session.state === DreamFlowState.TAROT_DRAWING || session.state === DreamFlowState.TAROT_INTERPRETING) {
       setShowTarotPage(true);
     } else if (session.state === DreamFlowState.DONE && showTarotPage) {
-      // Keep it open
+      // Keep it open until user hits return
     }
   }, [session.state, showTarotPage]);
+
+  // Transition to Summary view when done
+  useEffect(() => {
+    if (session.state === DreamFlowState.DONE && !showTarotPage && currentView === 'chat') {
+      setIsNewSession(true);
+      setCurrentView('summary');
+    }
+  }, [session.state, showTarotPage, currentView]);
 
   const handleDrawTarot = (index: number) => {
     setSelectedCardIndex(index);
@@ -73,12 +106,16 @@ export default function App() {
   const startChat = () => {
     resetSession();
     setSelectedCardIndex(null);
+    setIsNewSession(true);
+    setStreamingParagraphIndex(0);
     setCurrentView("chat");
   };
 
   const handleSend = () => {
     if (!input.trim() || isProcessing) return;
     
+    // Reset streaming for new messages in chat
+    setStreamingParagraphIndex(0);
     handleUserMessage(input);
     setInput("");
   };
@@ -97,7 +134,6 @@ export default function App() {
   };
 
   const handleSave = async () => {
-    // Already has title generation in saveRecord
     const success = await saveRecord();
     if (success) {
       resetSession();
@@ -106,74 +142,102 @@ export default function App() {
     }
   };
 
+  const handleDelete = async () => {
+    const recordToDelete = selectedRecord || (isNewSession ? session : null);
+    if (!recordToDelete) return;
+
+    const records = JSON.parse(localStorage.getItem("dream_records") || "[]");
+    const updated = records.filter((r: any) => r.id !== (recordToDelete.id || recordToDelete.sessionID));
+    localStorage.setItem("dream_records", JSON.stringify(updated));
+    
+    setSelectedRecord(null);
+    setShowDeleteConfirm(false);
+    resetSession();
+    setCurrentView("history");
+  };
+
   const handleShare = async () => {
-    // Auto-save if not already done
-    if (session.state === DreamFlowState.DONE) {
+    // Auto-save if it's a new session
+    if (isNewSession) {
       await saveRecord();
     }
 
+    setShowPoster(true);
+  };
+
+  const triggerShare = async () => {
     if (!posterRef.current) return;
     try {
       const dataUrl = await toPng(posterRef.current, { cacheBust: true });
       
-      // Try Web Share API if available
-      if (navigator.share && navigator.canShare) {
+      if (navigator.share) {
         try {
           const blob = await (await fetch(dataUrl)).blob();
-          const file = new File([blob], `dream-${session.title || "unveiled"}.png`, { type: "image/png" });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: session.title || "My Dream",
-              text: "I unveiled my dream with Veil."
-            });
-            return; // Successfully shared
-          }
+          const file = new File([blob], `dream-${session.title || selectedRecord?.title || "unveiled"}.png`, { type: "image/png" });
+          await navigator.share({
+            files: [file],
+            title: session.title || selectedRecord?.title || "My Dream",
+            text: "I unveiled my dream with Veil."
+          });
         } catch (shareErr) {
-          console.log("Web Share failed, falling back to download", shareErr);
+          downloadPoster(dataUrl);
         }
+      } else {
+        downloadPoster(dataUrl);
       }
-
-      // Fallback to download
-      const link = document.createElement("a");
-      link.download = `dream-${session.title || "unveiled"}.png`;
-      link.href = dataUrl;
-      link.click();
     } catch (err) {
-      console.error("Oops, something went wrong!", err);
+      console.error("Share failed", err);
     }
   };
 
-  // Helper to render interpretation with streaming effect
-   const renderInterpretation = (text: string, isNew: boolean = false) => {
-     if (!text) return null;
-     
-     const cleanText = text.replace(/\*/g, "");
-     
-     return cleanText.split(/\n+/).map((paragraph, idx) => {
-       if (!paragraph.trim()) return null;
-       
-       const colonIndex = paragraph.indexOf(":");
-       if (colonIndex > 0 && colonIndex < 40) {
-         const title = paragraph.substring(0, colonIndex);
-         const content = paragraph.substring(colonIndex + 1);
-         return (
-           <div key={idx} className="mb-6 last:mb-0">
-             <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic">{title.trim()}</div>
-             <div className="text-sm leading-relaxed font-light text-foreground/90 text-justify">
-               {isNew ? <StreamingText text={content.trim()} /> : content.trim()}
-             </div>
-           </div>
-         );
-       }
+  const downloadPoster = (dataUrl: string) => {
+    const link = document.createElement("a");
+    link.download = `dream-${session.title || selectedRecord?.title || "unveiled"}.png`;
+    link.href = dataUrl;
+    link.click();
+  };
 
-       return (
-         <div key={idx} className="mb-4 last:mb-0 text-sm leading-relaxed font-light text-foreground/90 text-justify">
-           {isNew ? <StreamingText text={paragraph} /> : paragraph}
-         </div>
-       );
-     });
-   };
+  // Helper to render interpretation with streaming effect
+  const renderInterpretation = (text: string, isNew: boolean = false) => {
+    if (!text) return null;
+    
+    const cleanText = text.replace(/\*/g, "");
+    const paragraphs = cleanText.split(/\n+/).filter(p => p.trim());
+    
+    return paragraphs.map((paragraph, idx) => {
+      // For summary view (isNew=false), everything is visible immediately
+      // For chat view (isNew=true), we use streaming
+      const isVisible = !isNew || idx <= streamingParagraphIndex;
+      const isStreaming = isNew && idx === streamingParagraphIndex;
+
+      const colonIndex = paragraph.indexOf(":");
+      let title = "";
+      let content = paragraph;
+
+      if (colonIndex > 0 && colonIndex < 40) {
+        title = paragraph.substring(0, colonIndex).trim();
+        content = paragraph.substring(colonIndex + 1).trim();
+      }
+
+      if (!isVisible) return null;
+
+      return (
+        <div key={idx} className={`mb-6 last:mb-0 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+          {title && <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic">{title}</div>}
+          <div className="text-sm leading-relaxed font-light text-foreground/90 text-justify">
+            {isStreaming ? (
+              <StreamingText 
+                text={content} 
+                onComplete={handleParagraphComplete}
+              />
+            ) : (
+              content
+            )}
+          </div>
+        </div>
+      );
+    });
+  };
 
   if (currentView === "login") {
     return (
@@ -196,12 +260,12 @@ export default function App() {
         <nav className="absolute top-0 w-full p-4 flex justify-between items-center max-w-2xl">
           <div className="text-sm tracking-widest uppercase">VEIL</div>
           <div className="flex gap-4 text-sm text-text-dim">
-            <button onClick={() => setCurrentView("history")} className="hover:text-foreground">History</button>
-            <button onClick={() => setCurrentView("login")} className="hover:text-foreground">Log out</button>
+            <button onClick={() => setCurrentView("history")} className="hover:text-foreground transition-colors">History</button>
+            <button onClick={() => setCurrentView("login")} className="hover:text-foreground transition-colors">Log out</button>
           </div>
         </nav>
         <h1 className="text-2xl font-light mb-8">What fragments remain from your dream?</h1>
-        <button onClick={startChat} className="px-8 py-3 rounded-full bg-foreground text-background hover:opacity-90 transition">Begin the descent</button>
+        <button onClick={startChat} className="px-8 py-3 rounded-full bg-foreground text-background hover:opacity-90 transition shadow-2xl shadow-black/20">Begin the descent</button>
       </div>
     );
   }
@@ -209,67 +273,10 @@ export default function App() {
   if (currentView === "history") {
     const records = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("dream_records") || "[]") : [];
     
-    if (selectedRecord) {
-      return (
-        <div className="min-h-screen p-6 max-w-2xl mx-auto flex flex-col relative overflow-hidden">
-          <div className="bg-glow opacity-20" />
-          <nav className="flex justify-between items-center mb-8 z-10">
-            <button onClick={() => setSelectedRecord(null)} className="text-sm text-text-dim hover:text-foreground">← Back to List</button>
-            <div className="text-xs tracking-widest uppercase opacity-50">Record Detail</div>
-          </nav>
-          
-          <div className="flex-1 overflow-y-auto space-y-8 pb-12 z-0">
-            <header className="space-y-2">
-              <div className="text-xs text-text-dim/60 uppercase tracking-widest">{new Date(selectedRecord.created_at).toLocaleDateString()}</div>
-              <h1 className="text-3xl font-light">{selectedRecord.title || "Untitled Dream"}</h1>
-            </header>
-
-            <section className="space-y-4">
-              <div className="text-[10px] tracking-[0.3em] text-text-dim uppercase opacity-40">The Narrative</div>
-              <p className="text-sm leading-relaxed font-light text-foreground/80 whitespace-pre-wrap">{selectedRecord.narrative}</p>
-            </section>
-
-            <section className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-8">
-              {selectedRecord.interpretation && (
-                <div className="space-y-4">
-                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Initial Interpretation</div>
-                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(selectedRecord.interpretation)}</div>
-                </div>
-              )}
-
-              {selectedRecord.life_connection_interpretation && (
-                <div className="space-y-4 pt-8 border-t border-white/5">
-                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Life Connection Insight</div>
-                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(selectedRecord.life_connection_interpretation)}</div>
-                </div>
-              )}
-
-              {selectedRecord.tarot_card && (
-                <div className="space-y-6 pt-8 border-t border-white/5">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🃏</span>
-                    <div className="space-y-1">
-                      <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Confirmation</div>
-                      <div className="text-lg font-medium text-accent-light">{selectedRecord.tarot_card.name}</div>
-                    </div>
-                  </div>
-                  {selectedRecord.tarot_interpretation && (
-                    <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
-                      {renderInterpretation(selectedRecord.tarot_interpretation)}
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen p-6 max-w-2xl mx-auto flex flex-col">
         <nav className="flex justify-between items-center mb-8">
-          <button onClick={() => setCurrentView("home")} className="text-sm text-text-dim hover:text-foreground">← Back</button>
+          <button onClick={() => setCurrentView("home")} className="text-sm text-text-dim hover:text-foreground transition-colors">← Back</button>
           <div className="text-sm tracking-widest uppercase">History</div>
         </nav>
         <div className="flex-1 overflow-y-auto space-y-4">
@@ -279,7 +286,11 @@ export default function App() {
             records.map((record: any) => (
               <button 
                 key={record.id} 
-                onClick={() => setSelectedRecord(record)}
+                onClick={() => {
+                  setSelectedRecord(record);
+                  setIsNewSession(false);
+                  setCurrentView('summary');
+                }}
                 className="w-full text-left p-6 border border-white/5 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.04] rounded-2xl transition-all group"
               >
                 <div className="flex justify-between items-start mb-2">
@@ -292,6 +303,155 @@ export default function App() {
             ))
           )}
         </div>
+      </div>
+    );
+  }
+
+  // Unified Summary / Detail View
+  if (currentView === "summary") {
+    const data = isNewSession ? session : selectedRecord;
+    if (!data) return null;
+
+    // Narrative processing for first-person
+    let narrative = data.narrative || data.summary || "";
+    if (narrative && !narrative.toLowerCase().startsWith("i dreamed")) {
+      narrative = "I dreamed " + narrative.charAt(0).toLowerCase() + narrative.slice(1);
+    }
+
+    return (
+      <div className="min-h-screen p-6 max-w-2xl mx-auto flex flex-col relative overflow-hidden">
+        <div className="bg-glow opacity-20" />
+        <nav className="flex justify-between items-center mb-8 z-10">
+          <button 
+            onClick={() => {
+              if (isNewSession) {
+                setShowDeleteConfirm(true);
+              } else {
+                setSelectedRecord(null);
+                setCurrentView("history");
+              }
+            }} 
+            className="text-sm text-text-dim hover:text-foreground transition-colors"
+          >
+            {isNewSession ? "← Discard" : "← Back"}
+          </button>
+          <div className="text-xs tracking-widest uppercase opacity-50">Dream Summary</div>
+        </nav>
+        
+        <div className="flex-1 overflow-y-auto space-y-8 pb-32 z-0 no-scrollbar">
+          <header className="space-y-2">
+            <div className="text-xs text-text-dim/60 uppercase tracking-widest">
+              {new Date(data.created_at || Date.now()).toLocaleDateString()}
+            </div>
+            <h1 className="text-3xl font-light italic leading-tight">{data.title || "Untitled Dream"}</h1>
+          </header>
+
+          <section className="space-y-4">
+            <div className="text-[10px] tracking-[0.3em] text-text-dim uppercase opacity-40">The Narrative</div>
+            <p className="text-sm leading-relaxed font-light text-foreground/80 whitespace-pre-wrap italic">
+              {narrative}
+            </p>
+          </section>
+
+          <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-12">
+            {data.interpretation && (
+              <div className="space-y-6">
+                <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Initial Interpretation</div>
+                <div className="text-sm leading-relaxed font-light">{renderInterpretation(data.interpretation, false)}</div>
+              </div>
+            )}
+
+            {data.lifeConnectionInterpretation && (
+              <div className="space-y-6 pt-12 border-t border-white/5">
+                <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Life Connection Insight</div>
+                <div className="text-sm leading-relaxed font-light">{renderInterpretation(data.lifeConnectionInterpretation, false)}</div>
+              </div>
+            )}
+
+            {data.tarotCard && (
+              <div className="space-y-8 pt-12 border-t border-white/5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-20 rounded-lg border border-accent-light/30 bg-black/40 flex items-center justify-center text-2xl shadow-lg shadow-accent/5">🃏</div>
+                  <div className="space-y-1">
+                    <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Confirmation</div>
+                    <div className="text-xl font-medium text-accent-light">{data.tarotCard.name}</div>
+                  </div>
+                </div>
+                {data.tarotInterpretation && (
+                  <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
+                    {renderInterpretation(data.tarotInterpretation, false)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-background via-background/90 to-transparent z-20">
+          <div className="max-w-2xl mx-auto flex flex-col gap-3">
+            <div className="flex gap-3">
+              <button 
+                onClick={handleShare} 
+                className="flex-1 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm font-medium tracking-widest uppercase transition-all flex items-center justify-center gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Share
+              </button>
+              {isNewSession ? (
+                <button 
+                  onClick={handleSave} 
+                  className="flex-1 py-4 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all"
+                >
+                  Save
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)} 
+                  className="flex-1 py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-2xl text-sm font-medium tracking-widest uppercase transition-all"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {isNewSession && (
+              <button 
+                onClick={() => setShowDeleteConfirm(true)} 
+                className="w-full py-3 text-text-dim hover:text-red-400 text-xs transition-colors uppercase tracking-widest"
+              >
+                Discard
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Delete/Discard Confirmation */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-background border border-white/10 p-8 rounded-[2rem] max-w-xs w-full text-center space-y-6 shadow-2xl">
+              <div className="text-3xl">🌑</div>
+              <p className="text-sm font-light leading-relaxed">
+                {isNewSession 
+                  ? "Are you sure you want to discard this dream fragment?" 
+                  : "Are you sure you want to remove this dream from your memory?"}
+              </p>
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={handleDelete}
+                  className="w-full py-3 bg-red-500/80 hover:bg-red-500 text-white rounded-xl text-xs font-medium uppercase tracking-widest transition-colors"
+                >
+                  Yes, Remove it
+                </button>
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full py-3 text-text-dim hover:text-foreground text-xs uppercase tracking-widest transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -352,8 +512,8 @@ export default function App() {
           {session.tarotInterpretation && (
             <div className="w-full mt-8 p-6 bg-white/[0.03] border border-white/5 rounded-2xl animate-in fade-in slide-in-from-bottom-4 duration-1000">
               <div className="text-[10px] tracking-widest uppercase text-accent-light/40 mb-4">Tarot Confirmation</div>
-              <div className="text-sm leading-relaxed font-light text-foreground/90 text-left max-h-48 overflow-y-auto">
-                {renderInterpretation(session.tarotInterpretation)}
+              <div className="text-sm leading-relaxed font-light text-foreground/90 text-left max-h-48 overflow-y-auto no-scrollbar">
+                {renderInterpretation(session.tarotInterpretation, true)}
               </div>
             </div>
           )}
@@ -364,10 +524,14 @@ export default function App() {
                 <div className="text-xs tracking-widest uppercase text-accent-light/60 animate-pulse">Veil is weaving the insight...</div>
               ) : (
                 <button 
-                  onClick={() => setShowTarotPage(false)}
-                  className="px-8 py-3 rounded-full bg-foreground text-background text-sm tracking-widest uppercase font-medium hover:opacity-90 transition-all"
+                  onClick={() => {
+                    setShowTarotPage(false);
+                    setStreamingParagraphIndex(0);
+                    setCurrentView('summary');
+                  }}
+                  className="px-8 py-3 rounded-full bg-foreground text-background text-sm tracking-widest uppercase font-medium hover:opacity-90 transition-all shadow-xl"
                 >
-                  Return to descent
+                  View Full Summary
                 </button>
               )}
             </div>
@@ -388,7 +552,7 @@ export default function App() {
         <div className="w-12" /> {/* spacer */}
       </nav>
 
-      <div className="flex-1 overflow-y-auto pb-40 space-y-8 px-6 pt-8 scroll-smooth z-0">
+      <div className="flex-1 overflow-y-auto pb-40 space-y-8 px-6 pt-8 scroll-smooth z-0 no-scrollbar">
         {session.messages.length === 0 && (
           <div className="text-center text-text-dim mt-20 font-light italic opacity-50">
             Tell it as it comes back to you. I will stay close to the shape of it.
@@ -431,7 +595,10 @@ export default function App() {
         {session.state === DreamFlowState.STRUCTURED && !isProcessing && (
           <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <button 
-              onClick={() => generateInterpretation()} 
+              onClick={() => {
+                setStreamingParagraphIndex(0);
+                generateInterpretation();
+              }} 
               className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98]"
             >
               Interpret the symbols
@@ -454,7 +621,11 @@ export default function App() {
               ✨ Draw a Tarot card for final insight
             </button>
             <button 
-              onClick={skipTarot} 
+              onClick={() => {
+                skipTarot();
+                setStreamingParagraphIndex(0);
+                setCurrentView('summary');
+              }} 
               className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors"
             >
               No, I'm ready to save
@@ -528,14 +699,20 @@ export default function App() {
 
       {/* Poster Modal */}
       {showPoster && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-sm flex flex-col items-center gap-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setShowPoster(false)}
+        >
+          <div 
+            className="relative w-full max-w-sm flex flex-col items-center gap-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div ref={posterRef} className="w-full aspect-[3/4.5] bg-background border border-white/10 rounded-[2rem] p-8 flex flex-col relative overflow-hidden shadow-2xl">
               <div className="bg-glow opacity-30" />
               <div className="z-10 flex flex-col h-full">
                 <div className="text-[10px] tracking-[0.4em] text-text-dim uppercase mb-10">Veil • Dream Record</div>
                 
-                <h2 className="text-2xl font-light mb-6 leading-tight italic">{session.title || "Untitled Dream"}</h2>
+                <h2 className="text-2xl font-light mb-6 leading-tight italic">{session.title || selectedRecord?.title || "Untitled Dream"}</h2>
                 
                 <div className="flex-1 space-y-6 overflow-hidden">
                   <div className="space-y-2">
@@ -545,12 +722,12 @@ export default function App() {
                     </p>
                   </div>
                   
-                  {session.tarotCard && (
+                  {(session.tarotCard || selectedRecord?.tarot_card) && (
                     <div className="pt-4 border-t border-white/5 flex flex-col items-center gap-3">
                       <div className="w-10 h-16 rounded border border-accent/30 bg-black/40 flex items-center justify-center text-xl shadow-lg shadow-accent/5">🃏</div>
                       <div className="text-center">
                         <div className="text-[8px] tracking-widest text-accent-light/60 uppercase mb-1">The Oracle's Sign</div>
-                        <div className="text-xs font-medium text-accent-light tracking-wide">{session.tarotCard.name}</div>
+                        <div className="text-xs font-medium text-accent-light tracking-wide">{(session.tarotCard || selectedRecord?.tarot_card).name}</div>
                       </div>
                     </div>
                   )}
@@ -558,32 +735,37 @@ export default function App() {
                   <div className="pt-4 border-t border-white/5">
                     <div className="text-[8px] tracking-widest text-text-dim/40 uppercase mb-2">The Unveiling</div>
                     <div className="text-[11px] leading-relaxed font-light text-foreground/90 text-justify line-clamp-4 italic opacity-80">
-                      {session.interpretation.split('\n')[0].replace(/.*:/, '').trim()}
+                      {(session.interpretation || selectedRecord?.interpretation || "").split('\n')[0].replace(/.*:/, '').trim()}
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-auto pt-6 flex justify-between items-end">
                   <div className="text-[8px] text-text-dim/30">
-                    {new Date().toLocaleDateString()}
+                    {new Date(selectedRecord?.created_at || Date.now()).toLocaleDateString()}
                   </div>
                   <div className="text-[8px] tracking-widest text-text-dim/30 uppercase">Unveil your subconscious</div>
                 </div>
               </div>
             </div>
 
-            <div className="w-full flex flex-col gap-2 mt-2">
-              <button 
-                onClick={handleShare}
-                className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98] shadow-xl"
-              >
-                Share / Download
-              </button>
+            <div className="w-full space-y-4">
+              <div className="flex justify-center gap-6">
+                <button onClick={triggerShare} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors shadow-lg">
+                  <span className="text-xl">📸</span>
+                </button>
+                <button onClick={triggerShare} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors shadow-lg">
+                  <span className="text-xl">𝕏</span>
+                </button>
+                <button onClick={triggerShare} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors shadow-lg">
+                  <span className="text-xl">🧵</span>
+                </button>
+              </div>
               <button 
                 onClick={() => setShowPoster(false)}
-                className="w-full py-3 text-text-dim hover:text-foreground text-xs transition-colors"
+                className="w-full py-3 text-text-dim hover:text-foreground text-xs uppercase tracking-[0.2em] transition-colors"
               >
-                Cancel
+                Back to Record
               </button>
             </div>
           </div>
