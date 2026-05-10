@@ -16,23 +16,25 @@ export type DreamFlowStateType = typeof DreamFlowState[keyof typeof DreamFlowSta
 
 export function createDreamRecord(fields: any) {
   return {
-    id: crypto.randomUUID(),
-    created_at: new Date().toISOString(),
+    id: fields.id || crypto.randomUUID(),
+    sessionID: fields.sessionID || crypto.randomUUID(),
+    created_at: fields.created_at || new Date().toISOString(),
     raw_input: fields.raw_input ?? "",
-    narrative: fields.narrative ?? "",
+    narrative: fields.narrative ?? fields.summary ?? "",
     title: fields.title ?? "",
     keywords: fields.keywords ?? [],
     emotions: fields.emotions ?? [],
     interpretation: fields.interpretation ?? "",
-    life_connection_interpretation: fields.life_connection_interpretation ?? "",
-    tarot_card: fields.tarot_card ?? null,
-    tarot_interpretation: fields.tarot_interpretation ?? "",
+    life_connection_interpretation: fields.lifeConnectionInterpretation || fields.life_connection_interpretation || "",
+    tarot_card: fields.tarotCard || fields.tarot_card || null,
+    tarot_interpretation: fields.tarotInterpretation || fields.tarot_interpretation || "",
     status: fields.status ?? DreamFlowState.DONE,
   };
 }
 
 export function createSession() {
   return {
+    sessionID: crypto.randomUUID(),
     state: DreamFlowState.RAW as DreamFlowStateType,
     rawEntries: [] as string[],
     messages: [] as any[],

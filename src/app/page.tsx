@@ -43,6 +43,7 @@ export default function App() {
   const [isNewSession, setIsNewSession] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [streamingParagraphIndex, setStreamingParagraphIndex] = useState(0);
+  const [isStreamingComplete, setIsStreamingComplete] = useState(false);
 
   const { 
     session, 
@@ -66,7 +67,11 @@ export default function App() {
   const posterRef = useRef<HTMLDivElement>(null);
 
   // Helper to handle paragraph streaming completion
-  const handleParagraphComplete = () => {
+  const handleParagraphComplete = (isLast: boolean) => {
+    if (isLast) {
+      setIsStreamingComplete(true);
+      return;
+    }
     setTimeout(() => {
       setStreamingParagraphIndex(prev => prev + 1);
     }, 400); // 400ms delay between paragraphs
@@ -90,6 +95,7 @@ export default function App() {
   useEffect(() => {
     if (session.state === DreamFlowState.DONE && !showTarotPage && currentView === 'chat') {
       setIsNewSession(true);
+      setIsStreamingComplete(true); // Summary view is static
       setCurrentView('summary');
     }
   }, [session.state, showTarotPage, currentView]);
@@ -108,6 +114,7 @@ export default function App() {
     setSelectedCardIndex(null);
     setIsNewSession(true);
     setStreamingParagraphIndex(0);
+    setIsStreamingComplete(false);
     setCurrentView("chat");
   };
 
@@ -116,6 +123,7 @@ export default function App() {
     
     // Reset streaming for new messages in chat
     setStreamingParagraphIndex(0);
+    setIsStreamingComplete(false);
     handleUserMessage(input);
     setInput("");
   };
@@ -143,8 +151,12 @@ export default function App() {
   };
 
   const handleDelete = async () => {
-    const recordToDelete = selectedRecord || (isNewSession ? session : null);
-    if (!recordToDelete) return;
+    const recordToDelete = selectedRecord || (isNewSession ? session.completedRecord : null);
+    if (!recordToDelete) {
+      resetSession();
+      setCurrentView("home");
+      return;
+    }
 
     const records = JSON.parse(localStorage.getItem("dream_records") || "[]");
     const updated = records.filter((r: any) => r.id !== (recordToDelete.id || recordToDelete.sessionID));
@@ -157,8 +169,8 @@ export default function App() {
   };
 
   const handleShare = async () => {
-    // Auto-save if it's a new session
-    if (isNewSession) {
+    // Auto-save if it's a new session and not already saved
+    if (isNewSession && !session.completedRecord) {
       await saveRecord();
     }
 
@@ -168,31 +180,36 @@ export default function App() {
   const triggerShare = async () => {
     if (!posterRef.current) return;
     try {
-      const dataUrl = await toPng(posterRef.current, { cacheBust: true });
+      const dataUrl = await toPng(posterRef.current, { 
+        cacheBust: true,
+        style: { transform: 'scale(1)' }
+      });
       
+      const title = session.title || selectedRecord?.title || "My Dream";
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `dream-${title.toLowerCase().replace(/\s+/g, '-')}.png`, { type: "image/png" });
+
       if (navigator.share) {
         try {
-          const blob = await (await fetch(dataUrl)).blob();
-          const file = new File([blob], `dream-${session.title || selectedRecord?.title || "unveiled"}.png`, { type: "image/png" });
           await navigator.share({
             files: [file],
-            title: session.title || selectedRecord?.title || "My Dream",
+            title: title,
             text: "I unveiled my dream with Veil."
           });
         } catch (shareErr) {
-          downloadPoster(dataUrl);
+          downloadPoster(dataUrl, title);
         }
       } else {
-        downloadPoster(dataUrl);
+        downloadPoster(dataUrl, title);
       }
     } catch (err) {
       console.error("Share failed", err);
     }
   };
 
-  const downloadPoster = (dataUrl: string) => {
+  const downloadPoster = (dataUrl: string, title: string) => {
     const link = document.createElement("a");
-    link.download = `dream-${session.title || selectedRecord?.title || "unveiled"}.png`;
+    link.download = `dream-${title.toLowerCase().replace(/\s+/g, '-')}.png`;
     link.href = dataUrl;
     link.click();
   };
@@ -209,6 +226,7 @@ export default function App() {
       // For chat view (isNew=true), we use streaming
       const isVisible = !isNew || idx <= streamingParagraphIndex;
       const isStreaming = isNew && idx === streamingParagraphIndex;
+      const isLast = idx === paragraphs.length - 1;
 
       const colonIndex = paragraph.indexOf(":");
       let title = "";
@@ -223,12 +241,12 @@ export default function App() {
 
       return (
         <div key={idx} className={`mb-6 last:mb-0 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-          {title && <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic">{title}</div>}
+          {title && <div className="text-[10px] tracking-widest uppercase text-accent-light/60 mb-2 font-bold italic"><i><b>{title}</b></i></div>}
           <div className="text-sm leading-relaxed font-light text-foreground/90 text-justify">
             {isStreaming ? (
               <StreamingText 
                 text={content} 
-                onComplete={handleParagraphComplete}
+                onComplete={() => handleParagraphComplete(isLast)}
               />
             ) : (
               content
@@ -312,6 +330,12 @@ export default function App() {
     const data = isNewSession ? session : selectedRecord;
     if (!data) return null;
 
+    // Use specific interpretation fields from record or session
+    const interpretation = data.interpretation || "";
+    const lifeInsight = data.life_connection_interpretation || data.lifeConnectionInterpretation || "";
+    const tarotCard = data.tarot_card || data.tarotCard || null;
+    const tarotInterpretation = data.tarot_interpretation || data.tarotInterpretation || "";
+
     // Narrative processing for first-person
     let narrative = data.narrative || data.summary || "";
     if (narrative && !narrative.toLowerCase().startsWith("i dreamed")) {
@@ -347,44 +371,46 @@ export default function App() {
           </header>
 
           <section className="space-y-4">
-            <div className="text-[10px] tracking-[0.3em] text-text-dim uppercase opacity-40">The Narrative</div>
+            <div className="text-[10px] tracking-[0.3em] text-text-dim uppercase opacity-40 font-bold italic"><i><b>The Narrative</b></i></div>
             <p className="text-sm leading-relaxed font-light text-foreground/80 whitespace-pre-wrap italic">
               {narrative}
             </p>
           </section>
 
-          <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-12">
-            {data.interpretation && (
-              <div className="space-y-6">
-                <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Initial Interpretation</div>
-                <div className="text-sm leading-relaxed font-light">{renderInterpretation(data.interpretation, false)}</div>
-              </div>
-            )}
-
-            {data.lifeConnectionInterpretation && (
-              <div className="space-y-6 pt-12 border-t border-white/5">
-                <div className="text-[10px] tracking-widest text-text-dim/40 uppercase">Life Connection Insight</div>
-                <div className="text-sm leading-relaxed font-light">{renderInterpretation(data.lifeConnectionInterpretation, false)}</div>
-              </div>
-            )}
-
-            {data.tarotCard && (
-              <div className="space-y-8 pt-12 border-t border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-20 rounded-lg border border-accent-light/30 bg-black/40 flex items-center justify-center text-2xl shadow-lg shadow-accent/5">🃏</div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] tracking-widest text-accent-light/60 uppercase">Tarot Confirmation</div>
-                    <div className="text-xl font-medium text-accent-light">{data.tarotCard.name}</div>
-                  </div>
+          {(interpretation || lifeInsight || tarotCard) && (
+            <div className="space-y-12">
+              {interpretation && (
+                <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-6">
+                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase font-bold italic"><i><b>Initial Interpretation</b></i></div>
+                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(interpretation, false)}</div>
                 </div>
-                {data.tarotInterpretation && (
-                  <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
-                    {renderInterpretation(data.tarotInterpretation, false)}
+              )}
+
+              {lifeInsight && (
+                <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-6">
+                  <div className="text-[10px] tracking-widest text-text-dim/40 uppercase font-bold italic"><i><b>Life Connection Insight</b></i></div>
+                  <div className="text-sm leading-relaxed font-light">{renderInterpretation(lifeInsight, false)}</div>
+                </div>
+              )}
+
+              {tarotCard && (
+                <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-20 rounded-lg border border-accent-light/30 bg-black/40 flex items-center justify-center text-2xl shadow-lg shadow-accent/5">🃏</div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] tracking-widest text-accent-light/60 uppercase font-bold italic"><i><b>Tarot Confirmation</b></i></div>
+                      <div className="text-xl font-medium text-accent-light">{tarotCard.name}</div>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                  {tarotInterpretation && (
+                    <div className="text-sm leading-relaxed font-light text-foreground/90 italic">
+                      {renderInterpretation(tarotInterpretation, false)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -484,10 +510,10 @@ export default function App() {
                       disabled={selectedCardIndex !== null && !isSelected}
                       className={`tarot-card-item ${isSelected ? 'selected' : ''} ${hasRevealed ? 'revealed' : 'tarot-card-back'}`}
                       style={{ 
-                        zIndex: isSelected ? 2000 : 100 - Math.abs(i - 11),
+                        zIndex: isSelected ? 2000 : i,
                         transform: isSelected 
                           ? 'translate(-50%, -50%) scale(1)' 
-                          : `rotate(${(i - 11) * 5}deg) translateX(${(i - 11) * 25}px) translateY(${Math.pow(Math.abs(i - 11), 1.8) * 1.5}px)`
+                          : `rotate(${(i - 11) * 3}deg) translateX(${(i - 11) * 15}px) translateY(${Math.pow(Math.abs(i - 11), 1.5) * 0.8}px)`
                       }}
                     >
                       {hasRevealed && (
@@ -592,11 +618,12 @@ export default function App() {
           </div>
         )}
 
-        {session.state === DreamFlowState.STRUCTURED && !isProcessing && (
+        {session.state === DreamFlowState.STRUCTURED && !isProcessing && isStreamingComplete && (
           <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <button 
               onClick={() => {
                 setStreamingParagraphIndex(0);
+                setIsStreamingComplete(false);
                 generateInterpretation();
               }} 
               className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98]"
@@ -612,7 +639,7 @@ export default function App() {
           </div>
         )}
 
-        {session.state === DreamFlowState.AWAITING_TAROT_DECISION && !isProcessing && (
+        {session.state === DreamFlowState.AWAITING_TAROT_DECISION && !isProcessing && isStreamingComplete && (
           <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <button 
               onClick={() => setShowTarotPage(true)} 
@@ -624,6 +651,7 @@ export default function App() {
               onClick={() => {
                 skipTarot();
                 setStreamingParagraphIndex(0);
+                setIsStreamingComplete(true);
                 setCurrentView('summary');
               }} 
               className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors"
@@ -633,7 +661,7 @@ export default function App() {
           </div>
         )}
 
-        {(session.state === DreamFlowState.DONE) && !isProcessing && (
+        {(session.state === DreamFlowState.DONE) && !isProcessing && isStreamingComplete && (
           <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {session.interpretation && (
               <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">

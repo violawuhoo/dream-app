@@ -217,27 +217,38 @@ export function useOrchestrator() {
   const saveRecord = async () => {
     setIsProcessing(true);
     try {
-      const titlePrompts = buildTitleMessages({ session });
-      const title = await callLLM(titlePrompts, 0.7);
-      
+      // Generate title if not exists
+      let title = session.title;
+      if (!title || title === "Untitled Dream") {
+        const prompts = buildTitleMessages({ session });
+        const generatedTitle = await callLLM(prompts, 0.7);
+        title = generatedTitle.replace(/["']/g, "").trim();
+      }
+
       const record = createDreamRecord({
-        raw_input: session.rawEntries.join("\\n"),
-        narrative: session.summary,
-        title: title,
+        ...session,
+        title,
         interpretation: session.interpretation,
-        life_connection_interpretation: session.lifeConnectionInterpretation,
-        tarot_card: session.tarotCard,
-        tarot_interpretation: session.tarotInterpretation,
-        status: DreamFlowState.DONE
+        lifeConnectionInterpretation: session.lifeConnectionInterpretation,
+        tarotInterpretation: session.tarotInterpretation,
+        tarotCard: session.tarotCard
       });
+
+      const existingRecords = JSON.parse(localStorage.getItem("dream_records") || "[]");
+      // Check if this session already exists (by sessionID)
+      const index = existingRecords.findIndex((r: any) => r.sessionID === session.sessionID);
       
-      // Load from local storage
-      const existing = JSON.parse(localStorage.getItem("dream_records") || "[]");
-      localStorage.setItem("dream_records", JSON.stringify([record, ...existing]));
+      if (index !== -1) {
+        existingRecords[index] = { ...existingRecords[index], ...record };
+      } else {
+        existingRecords.unshift(record);
+      }
       
-      return true; // Success
+      localStorage.setItem("dream_records", JSON.stringify(existingRecords));
+      updateSession({ title, completedRecord: record });
+      return true;
     } catch (e) {
-      console.error(e);
+      console.error("Save failed", e);
       return false;
     } finally {
       setIsProcessing(false);
