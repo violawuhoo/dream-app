@@ -576,16 +576,16 @@ export default function App() {
 
   // Chat View
   return (
-    <div className="min-h-screen flex flex-col max-w-2xl mx-auto relative overflow-hidden">
+    <div className="min-h-[100svh] flex flex-col max-w-2xl mx-auto relative overflow-hidden pt-safe pb-safe">
       <div className="bg-glow" />
       
-      <nav className="flex justify-between items-center p-6 border-b border-white/5 backdrop-blur-md z-10">
+      <nav className="flex justify-between items-center p-6 border-b border-white/5 backdrop-blur-md z-10 pt-safe">
         <button onClick={handleDiscard} className="text-sm text-text-dim hover:text-foreground transition-colors">← Home</button>
         <div className="text-xs tracking-[0.3em] font-light text-text-dim uppercase">VEIL</div>
         <div className="w-12" /> {/* spacer */}
       </nav>
 
-      <div className="flex-1 overflow-y-auto pb-40 space-y-8 px-6 pt-8 scroll-smooth z-0 no-scrollbar">
+      <div className="flex-1 overflow-y-auto space-y-8 px-6 pt-8 scroll-smooth z-0 no-scrollbar chat-scroll-area">
         {session.messages.length === 0 && (
           <div className="text-center text-text-dim mt-20 font-light italic opacity-50">
             Tell it as it comes back to you. I will stay close to the shape of it.
@@ -603,7 +603,7 @@ export default function App() {
               }`}>
                 <div className="whitespace-pre-wrap leading-relaxed">
                   {isAssistant && isLastMessage && !isProcessing ? (
-                    <StreamingText text={msg.content} />
+                    <StreamingText text={msg.content} onComplete={() => handleParagraphComplete(true)} />
                   ) : (
                     msg.content
                   )}
@@ -626,20 +626,20 @@ export default function App() {
         )}
 
         {session.state === DreamFlowState.STRUCTURED && !isProcessing && isStreamingComplete && (
-          <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex flex-col gap-3 mt-8 mb-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <button 
               onClick={() => {
                 setStreamingParagraphIndex(0);
                 setIsStreamingComplete(false);
                 generateInterpretation();
               }} 
-              className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98]"
+              className="w-full py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm tracking-widest uppercase transition-all active:scale-[0.98] shadow-lg shadow-black/20"
             >
               Interpret the symbols
             </button>
             <button 
               onClick={skipInterpretation} 
-              className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors"
+              className="w-full py-4 text-text-dim hover:text-foreground text-xs transition-colors uppercase tracking-widest"
             >
               Just save the dream
             </button>
@@ -815,8 +815,8 @@ export default function App() {
         session.state === DreamFlowState.EXPANDING || 
         session.state === DreamFlowState.AWAITING_CONTINUE_DECISION ||
         session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) && (
-        <div className="fixed bottom-0 left-0 w-full p-6 z-20">
-          <div className="max-w-2xl mx-auto input-container rounded-3xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
+        <div className="input-area-fixed">
+          <div className="input-container rounded-[2rem] shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
             <div className="flex items-end gap-2 p-2">
               <textarea
                 value={input}
@@ -830,7 +830,7 @@ export default function App() {
               <button 
                 onClick={handleSend}
                 disabled={isProcessing || !input.trim()}
-                className="mb-1 mr-1 p-3 rounded-2xl bg-foreground text-background disabled:opacity-20 transition-all active:scale-90"
+                className="mb-1.5 mr-1.5 p-3 rounded-2xl bg-foreground text-background disabled:opacity-20 transition-all active:scale-90"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
               </button>

@@ -26,6 +26,39 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  min-height: 100svh; /* Modern mobile height fix */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Safe Area Helpers */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+/* Chat Scroll Area */
+.chat-scroll-area {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
+/* Input Area Fix */
+.input-area-fixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 h1, h2, h3, .nav-logo {
@@ -130,11 +163,21 @@ body::before {
   margin-right: auto;
 }
 
-/* Input Area */
 .input-container {
-  background: rgba(10, 10, 12, 0.8);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  width: 100%;
+  max-width: 42rem; /* 2xl */
+  background: rgba(10, 10, 12, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+/* Tap Feedback */
+button:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
 }
 
 .perspective-1000 {
