@@ -1,117 +1,61 @@
-# Dream App (MVP)
+# Veil - A Space for Your Dreams
 
-AI-native dream journaling app. The product starts from dream expression, guides the user to reconstruct the dream with minimal follow-up questions, optionally interprets it in a grounded (non-absolute) way, and saves it to an archive.
+"Begin with whatever remains. A quiet place to reconstruct a dream before it fades."
 
-## Current MVP scope
+Veil is an AI-native dream journaling app designed to help you capture, explore, and understand your subconscious world. It provides a serene environment to record your dreams, offers deep psychological insights, and integrates symbolic guidance through Tarot.
 
-- Text-only experience
-- No image generation / tarot / I Ching
-- Local persistence (browser `localStorage`)
-- LLM-backed follow-up questions, structured summary, and interpretation
+## Core Features
 
-## Core user flow
+- **Guided Dream Capture**: A gentle, conversational interface that helps you reconstruct your dreams with minimal, thoughtful follow-up questions.
+- **Multidimensional Interpretation**:
+  - **Initial Analysis**: Grounded in Jungian collective unconscious and Freudian emotional psychology.
+  - **Life Connection**: Maps dream symbols to your current waking life events for personalized resonance.
+  - **Eastern Philosophy**: Supplements with macro-level insights from I Ching and Taoist perspectives on energy and balance.
+- **The Oracle (Tarot)**: An immersive, ritualistic Tarot drawing experience for final symbolic confirmation and integrated insight.
+- **Dream Archive**: Securely stores your dream fragments and their full interpretations in a beautiful, searchable history.
+- **Shareable Posters**: Generate and share minimalist posters of your dream narratives and insights with friends or on social media.
 
-1. User opens the app
-2. Presence-like entry screen invites them to describe their dream
-3. User enters dream in free-form conversation
-4. AI guides with minimal follow-up questions (one question at a time)
-5. AI paraphrases into a structured natural-language summary (no interpretation)
-6. User confirms or corrects the summary
-7. AI asks whether the user wants interpretation
-8. If yes, AI provides grounded but non-absolute interpretation
-9. User saves the dream record (or discards)
-10. User can view history
+## User Flow
 
-## Conversation states (state machine)
+1. **Descent**: Start by describing whatever fragments of your dream you remember.
+2. **Expansion**: Veil asks a few targeted questions to clarify the atmosphere and symbols.
+3. **Synthesis**: AI generates a structured narrative and a 3-part psychological interpretation.
+4. **Resonance**: Optionally share a life event to see how it mirrors your dream's hidden pressures.
+5. **The Oracle**: Draw a Tarot card from a 23-card fan for a final layer of symbolic confirmation.
+6. **Preservation**: View the complete summary and save it to your local archive.
 
-- `RAW`: initial capture (user starts describing)
-- `EXPANDING`: LLM asks one follow-up question at a time
-- `AWAITING_CONTINUE_DECISION`: periodic “anything else?” check-in
-- `STRUCTURED`: structured summary is produced and awaiting confirmation/correction
-- `INTERPRETING`: asking whether to interpret (and/or generating interpretation)
-- `DONE`: session ends; record can be saved
+## Tech Stack
 
-## Tech stack
+- **Framework**: Next.js 14+ (App Router)
+- **Styling**: Tailwind CSS + Custom CSS for ethereal animations
+- **LLM Integration**: OpenAI/Groq via serverless API routes
+- **Storage**: Browser `localStorage` (Privacy-focused, local-first)
+- **Image Processing**: `html-to-image` for sharing posters
+- **Deployment**: Vercel
 
-- Frontend: HTML + CSS + Vanilla JS (ES Modules)
-- Backend: Node.js server (serves static assets + `/api/*` endpoints)
-- LLM Provider: Kimi (Moonshot) by default; optional Groq/OpenRouter
-- Storage: browser `localStorage`
-- Deploy: Vercel (full-stack)
+## Getting Started
 
-## Project structure
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-- `index.html`: screens/layout
-- `src/main.js`: UI wiring/rendering + client-side state
-- `src/orchestrator.js`: conversation state machine + flow logic
-- `src/llm-client.js`: client wrapper for calling `/api/dream-chat`
-- `src/llm-prompts.js`: isolated prompts for follow-up/summary/interpretation/title
-- `src/dream-model.js`: state enums + dream/session model
-- `src/storage.js`: local persistence (records + simple user placeholder)
-- `src/styles.css`: UI styling
-- `server.js`: Node server (static + API + provider config)
+2. **Set up Environment Variables**:
+   Create a `.env.local` file with your API keys:
+   ```env
+   OPENAI_API_KEY=your_key_here
+   ```
 
-## Running locally
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-1. Install dependencies:
+Open [http://localhost:3000](http://localhost:3000) with your browser to begin the descent.
 
-```bash
-npm install
-```
+## Deployment
 
-2. Create `.env`:
+The project is optimized for **Vercel**. Simply connect your GitHub repository and set the environment variables in the Vercel dashboard.
 
-```bash
-cp .env.example .env
-```
-
-3. Set environment variables in `.env`:
-
-- `KIMI_API_KEY=...`
-- `KIMI_MODEL=moonshot-v1-8k` (optional)
-
-4. Start:
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## Deploy (Vercel)
-
-- Import the GitHub repo in Vercel
-- Set `KIMI_API_KEY` as an Environment Variable (Production)
-- Deploy
-
-## Roadmap architecture (for iOS launch ~1k users + future in-app payments)
-
-This repo is a good MVP foundation. For App Store launch and payments, the recommended architecture evolves into “Web UI (Capacitor) + API backend + DB + Auth + Billing”.
-
-### Phase 1: Production-ready web + mobile packaging
-
-- Keep the UI as-is; package with Capacitor for iOS
-- Keep LLM calls server-side (never ship API keys in the client)
-- Add basic observability (request IDs, error capture)
-- Add rate limiting and timeouts on `/api/*`
-
-### Phase 2: User accounts + cloud sync
-
-- Add a real auth provider (Apple + Google are the priority for iOS)
-- Add database (PostgreSQL) and an ORM (Prisma)
-- Data model (minimum):
-  - `users`
-  - `dream_records` (title, narrative, raw_input, interpretation, keywords, emotions, created_at)
-  - `subscriptions` / `entitlements` (for paid access)
-- Move persistence from `localStorage` → DB (keep local cache for offline UX)
-
-### Phase 3: In-app payments
-
-- Use iOS In-App Purchase via a billing layer (e.g. RevenueCat) to reduce complexity
-- Server verifies receipts / processes webhooks and stores entitlements
-- Gate premium features by entitlements (e.g. interpretation depth, history search, exports)
-
-## Notes
-
-- Prompts are isolated and configurable (`src/llm-prompts.js`) to support future language selection and prompt tuning.
-- Conversation state logic is separated from UI (`src/orchestrator.js`) to enable future refactors or swapping the LLM adapter.
+---
+*Dreams are personal echoes. Veil provides reflections, not diagnoses.*

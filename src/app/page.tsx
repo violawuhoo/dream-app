@@ -261,7 +261,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <h1 className="text-4xl font-light tracking-wider mb-2">Veil</h1>
-        <p className="text-text-dim mb-12">A space for your dreams</p>
+        <p className="text-text-dim mb-12 max-w-xs mx-auto">A quiet place to reconstruct a dream before it fades.</p>
         <div className="w-full max-w-xs space-y-4">
           <button onClick={() => handleLogin("Google")} className="w-full py-3 px-4 rounded-lg border border-accent hover:bg-accent/50 transition">Continue with Google</button>
           <button onClick={() => handleLogin("Instagram")} className="w-full py-3 px-4 rounded-lg border border-accent hover:bg-accent/50 transition">Continue with Instagram</button>
@@ -282,7 +282,7 @@ export default function App() {
             <button onClick={() => setCurrentView("login")} className="hover:text-foreground transition-colors">Log out</button>
           </div>
         </nav>
-        <h1 className="text-2xl font-light mb-8">What fragments remain from your dream?</h1>
+        <h1 className="text-2xl font-light mb-8">Begin with whatever remains.</h1>
         <button onClick={startChat} className="px-8 py-3 rounded-full bg-foreground text-background hover:opacity-90 transition shadow-2xl shadow-black/20">Begin the descent</button>
       </div>
     );
