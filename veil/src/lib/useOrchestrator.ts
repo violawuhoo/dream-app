@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/clerk-expo";
+import * as SecureStore from "expo-secure-store";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
 import { callLLM, callLLMFull } from "./llm-client";
 import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
@@ -13,8 +14,8 @@ const DONE_PATTERNS = [
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export function useOrchestrator() {
-  const [session, setSession] = useState(createSession());
+export function useOrchestrator(initialSession?: ReturnType<typeof createSession>) {
+  const [session, setSession] = useState(initialSession ?? createSession());
   const [isProcessing, setIsProcessing] = useState(false);
   const { getToken, userId } = useAuth();
 
@@ -266,6 +267,7 @@ export function useOrchestrator() {
       const { error } = await supabase.from("dream_records").upsert(row, { onConflict: "id" });
       if (error) throw error;
 
+      await SecureStore.deleteItemAsync("veil_draft_session");
       updateSession({ title, completedRecord: record });
       return true;
     } catch (e) {
