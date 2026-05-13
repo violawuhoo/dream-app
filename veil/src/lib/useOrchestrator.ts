@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/clerk-expo";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
-import { callLLMFull } from "./llm-client";
+import { callLLM, callLLMFull } from "./llm-client";
 import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
 import { getRandomTarotCard } from "../data/tarot-data";
 import { supabase } from "./supabase";
@@ -95,25 +95,31 @@ export function useOrchestrator() {
   const askFollowUp = async (currentSession: any) => {
     await sleep(800);
     const prompts = buildExpansionMessages({ session: currentSession, latestUserMessage: currentSession.messages[currentSession.messages.length - 1].content });
-    const response = await callLLMFull(prompts, 0.7, getToken);
-    const newMsg = { role: "assistant", content: response };
-    updateSession({
-      messages: [...currentSession.messages, newMsg],
-      lastAssistantQuestion: response,
-    });
+    let response = "";
+    const baseMessages = [...currentSession.messages];
+    for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+      response += chunk;
+      setSession(prev => ({
+        ...prev,
+        messages: [...baseMessages, { role: "assistant", content: response }],
+      }));
+    }
+    updateSession({ lastAssistantQuestion: response });
   };
 
   const proceedToStructuring = async (currentSession: any) => {
     await sleep(800);
     const prompts = buildStructuredMessages({ session: currentSession });
-    const summary = await callLLMFull(prompts, 0.5, getToken);
-
-    const summaryMsg = { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` };
-    updateSession({
-      summary,
-      messages: [...currentSession.messages, summaryMsg],
-      state: DreamFlowState.STRUCTURED,
-    });
+    let summary = "";
+    const baseMessages = [...currentSession.messages];
+    for await (const chunk of callLLM(prompts, 0.5, getToken)) {
+      summary += chunk;
+      setSession(prev => ({
+        ...prev,
+        messages: [...baseMessages, { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` }],
+      }));
+    }
+    updateSession({ summary, state: DreamFlowState.STRUCTURED });
   };
 
   const generateInterpretation = async () => {
@@ -122,14 +128,19 @@ export function useOrchestrator() {
       updateSession({ state: DreamFlowState.INTERPRETING });
       await sleep(800);
       const prompts = buildInterpretationMessages({ session });
-      const interpretation = await callLLMFull(prompts, 0.7, getToken);
-
-      const interpretationMsg = { role: "assistant", content: interpretation };
+      let interpretation = "";
+      const baseMessages = [...session.messages];
+      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+        interpretation += chunk;
+        setSession(prev => ({
+          ...prev,
+          messages: [...baseMessages, { role: "assistant", content: interpretation }],
+        }));
+      }
       const questionMsg = { role: "assistant", content: "How does this land with you? Is there a specific event or feeling in your waking life that this brings to mind?" };
-
       updateSession({
         interpretation,
-        messages: [...session.messages, interpretationMsg, questionMsg],
+        messages: [...baseMessages, { role: "assistant", content: interpretation }, questionMsg],
         state: DreamFlowState.AWAITING_LIFE_CONNECTION,
       });
     } catch (e) {
@@ -150,14 +161,19 @@ export function useOrchestrator() {
 
       await sleep(800);
       const prompts = buildLifeConnectionInterpretationMessages({ session: { ...session, lifeConnection: userResponse }, lifeEvent: userResponse });
-      const lifeConnectionInterpretation = await callLLMFull(prompts, 0.7, getToken);
-
-      const interpretationMsg = { role: "assistant", content: lifeConnectionInterpretation };
+      let lifeConnectionInterpretation = "";
+      const baseMessages = [...session.messages, { role: "user", content: userResponse }];
+      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+        lifeConnectionInterpretation += chunk;
+        setSession(prev => ({
+          ...prev,
+          messages: [...baseMessages, { role: "assistant", content: lifeConnectionInterpretation }],
+        }));
+      }
       const questionMsg = { role: "assistant", content: "Would you like to draw a Tarot card for further confirmation or final insight?" };
-
       updateSession({
         lifeConnectionInterpretation,
-        messages: [...session.messages, { role: "user", content: userResponse }, interpretationMsg, questionMsg],
+        messages: [...baseMessages, { role: "assistant", content: lifeConnectionInterpretation }, questionMsg],
         state: DreamFlowState.AWAITING_TAROT_DECISION,
       });
     } catch (e) {
@@ -180,14 +196,19 @@ export function useOrchestrator() {
 
       await sleep(800);
       const prompts = buildTarotInterpretationMessages({ session: sessionWithCard });
-      const tarotInterpretation = await callLLMFull(prompts, 0.7, getToken);
-
       const cardMsg = { role: "assistant", content: `You drew **${tarotCard.name}**. ${tarotCard.meaning}` };
-      const interpretationMsg = { role: "assistant", content: tarotInterpretation };
-
+      let tarotInterpretation = "";
+      const baseMessages = [...session.messages, cardMsg];
+      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+        tarotInterpretation += chunk;
+        setSession(prev => ({
+          ...prev,
+          messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }],
+        }));
+      }
       updateSession({
         tarotInterpretation,
-        messages: [...session.messages, cardMsg, interpretationMsg],
+        messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }],
         state: DreamFlowState.DONE,
       });
     } catch (e) {
