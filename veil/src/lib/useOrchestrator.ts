@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useAuth } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
-import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord } from "./dream-model";
+import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord, DreamRecord } from "./dream-model";
 import { callLLM, callLLMFull } from "./llm-client";
 import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
 import { getRandomTarotCard } from "../data/tarot-data";
@@ -14,10 +13,13 @@ const DONE_PATTERNS = [
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export function useOrchestrator(initialSession?: ReturnType<typeof createSession>) {
+export function useOrchestrator(
+  userId: string,
+  getToken: () => Promise<string | null>,
+  initialSession?: ReturnType<typeof createSession>
+) {
   const [session, setSession] = useState(initialSession ?? createSession());
   const [isProcessing, setIsProcessing] = useState(false);
-  const { getToken, userId } = useAuth();
 
   const updateSession = (updates: any) => {
     setSession((prev: any) => ({ ...prev, ...updates }));
@@ -100,10 +102,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
     const baseMessages = [...currentSession.messages];
     for await (const chunk of callLLM(prompts, 0.7, getToken)) {
       response += chunk;
-      setSession(prev => ({
-        ...prev,
-        messages: [...baseMessages, { role: "assistant", content: response }],
-      }));
+      updateSession({ messages: [...baseMessages, { role: "assistant", content: response }] });
     }
     updateSession({ lastAssistantQuestion: response });
   };
@@ -115,10 +114,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
     const baseMessages = [...currentSession.messages];
     for await (const chunk of callLLM(prompts, 0.5, getToken)) {
       summary += chunk;
-      setSession(prev => ({
-        ...prev,
-        messages: [...baseMessages, { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` }],
-      }));
+      updateSession({ messages: [...baseMessages, { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` }] });
     }
     updateSession({ summary, state: DreamFlowState.STRUCTURED });
   };
@@ -133,10 +129,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
       const baseMessages = [...session.messages];
       for await (const chunk of callLLM(prompts, 0.7, getToken)) {
         interpretation += chunk;
-        setSession(prev => ({
-          ...prev,
-          messages: [...baseMessages, { role: "assistant", content: interpretation }],
-        }));
+        updateSession({ messages: [...baseMessages, { role: "assistant", content: interpretation }] });
       }
       const questionMsg = { role: "assistant", content: "How does this land with you? Is there a specific event or feeling in your waking life that this brings to mind?" };
       updateSession({
@@ -166,10 +159,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
       const baseMessages = [...session.messages, { role: "user", content: userResponse }];
       for await (const chunk of callLLM(prompts, 0.7, getToken)) {
         lifeConnectionInterpretation += chunk;
-        setSession(prev => ({
-          ...prev,
-          messages: [...baseMessages, { role: "assistant", content: lifeConnectionInterpretation }],
-        }));
+        updateSession({ messages: [...baseMessages, { role: "assistant", content: lifeConnectionInterpretation }] });
       }
       const questionMsg = { role: "assistant", content: "Would you like to draw a Tarot card for further confirmation or final insight?" };
       updateSession({
@@ -202,10 +192,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
       const baseMessages = [...session.messages, cardMsg];
       for await (const chunk of callLLM(prompts, 0.7, getToken)) {
         tarotInterpretation += chunk;
-        setSession(prev => ({
-          ...prev,
-          messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }],
-        }));
+        updateSession({ messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }] });
       }
       updateSession({
         tarotInterpretation,
@@ -247,24 +234,9 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
         tarotCard: session.tarotCard,
       });
 
-      const row = {
-        id: record.id,
-        session_id: record.sessionID,
-        user_id: userId ?? "",
-        created_at: record.created_at,
-        raw_input: record.raw_input,
-        narrative: record.narrative,
-        title: record.title,
-        keywords: record.keywords,
-        emotions: record.emotions,
-        interpretation: record.interpretation,
-        life_connection_interpretation: record.life_connection_interpretation,
-        tarot_card: record.tarot_card as Record<string, unknown> | null,
-        tarot_interpretation: record.tarot_interpretation,
-        status: record.status,
-      };
-
-      const { error } = await supabase.from("dream_records").upsert(row, { onConflict: "id" });
+      const { error } = await supabase
+        .from("dream_records")
+        .upsert({ ...record, session_id: record.sessionID, user_id: userId }, { onConflict: "session_id" });
       if (error) throw error;
 
       await SecureStore.deleteItemAsync("veil_draft_session");
@@ -276,6 +248,15 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const loadRecords = async (): Promise<DreamRecord[]> => {
+    const { data, error } = await supabase
+      .from("dream_records")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as DreamRecord[];
   };
 
   const resetSession = () => {
@@ -290,6 +271,7 @@ export function useOrchestrator(initialSession?: ReturnType<typeof createSession
     generateInterpretation,
     skipInterpretation,
     saveRecord,
+    loadRecords,
     resetSession,
     handleLifeConnection,
     drawTarot,
