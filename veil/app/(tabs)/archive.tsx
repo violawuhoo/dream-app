@@ -1,9 +1,12 @@
-import { Text, View } from "react-native";
+import { View, Text } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { colors } from "../../src/theme/tokens";
 
 export default function ArchiveScreen() {
   return (
-    <View style={{ flex: 1, backgroundColor: "#0A0A0F", alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color: "#FFFFFF" }}>Archive</Text>
+    <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+      <StatusBar style="light" />
+      <Text style={{ color: colors.textPrimary, fontSize: 17 }}>Archive</Text>
     </View>
   );
 }
