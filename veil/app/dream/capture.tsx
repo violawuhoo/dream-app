@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -20,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, fontSizes, borderRadius } from "../../src/theme/tokens";
 import { DreamFlowState } from "../../src/lib/dream-model";
-import { useOrchestrator } from "../../src/lib/useOrchestrator";
+import { useOrchestratorContext } from "../../src/lib/OrchestratorContext";
 import { VeilText } from "../../src/components/ui/VeilText";
 import { VeilButton } from "../../src/components/ui/VeilButton";
 import { VeilCard } from "../../src/components/ui/VeilCard";
@@ -36,7 +35,6 @@ const STATE_CARD_STATES = [
 
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
-  const { userId, getToken } = useAuth();
   const {
     session,
     isProcessing,
@@ -46,7 +44,7 @@ export default function CaptureScreen() {
     saveRecord,
     skipTarot,
     resetSession,
-  } = useOrchestrator(userId ?? "", getToken);
+  } = useOrchestratorContext();
 
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
