@@ -236,7 +236,8 @@ export function useOrchestrator(
 
       const { error } = await supabase
         .from("dream_records")
-        .upsert({ ...record, session_id: record.sessionID, user_id: userId }, { onConflict: "session_id" });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert({ ...record, session_id: record.sessionID, user_id: userId } as any, { onConflict: "session_id" });
       if (error) throw error;
 
       await SecureStore.deleteItemAsync("veil_draft_session");
