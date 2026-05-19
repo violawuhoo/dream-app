@@ -1,4 +1,4 @@
-import { createClerkClient } from "@clerk/backend";
+import { verifyToken } from "@clerk/backend";
 
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const MAX_REQUESTS = 30;
@@ -13,9 +13,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   let userId: string;
-  const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
   try {
-    const payload = await clerk.verifyToken(token);
+    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
     userId = payload.sub;
   } catch {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
