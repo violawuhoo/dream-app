@@ -7,7 +7,11 @@ import {
   Text,
   View,
   ViewStyle,
+  ActivityIndicator,
 } from "react-native";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
+import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -169,6 +173,7 @@ export default function DreamDetailScreen() {
   const [dream, setDream] = useState<DreamRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
@@ -199,6 +204,41 @@ export default function DreamDetailScreen() {
         setLoading(false);
       });
   }, [id]);
+
+  const handleShare = async () => {
+    if (!dream) return;
+    setSharing(true);
+    try {
+      const res = await fetch("/api/generate-poster", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: dream.title ?? "Dream",
+          narrative: dream.narrative ?? "",
+          tarotCard: dream.tarot_card ?? null,
+          emotions: dream.emotions ?? [],
+          date: formatDreamDate(dream.created_at),
+        }),
+      });
+      if (!res.ok) throw new Error("Poster generation failed");
+      const arrayBuffer = await res.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ""),
+      );
+      const filePath = `${FileSystem.cacheDirectory}veil-dream-poster.png`;
+      await FileSystem.writeAsStringAsync(filePath, base64, { encoding: FileSystem.EncodingType.Base64 });
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status === "granted") {
+        await MediaLibrary.saveToLibraryAsync(filePath);
+      }
+      await Sharing.shareAsync(filePath, { mimeType: "image/png" });
+    } catch (e) {
+      console.error("Share error:", e);
+      Alert.alert("Error", "Could not generate share poster.");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -456,10 +496,15 @@ export default function DreamDetailScreen() {
         }}
       >
         <Pressable
-          onPress={() => Alert.alert("Coming soon", "Share poster is coming in a future update.")}
+          onPress={handleShare}
           hitSlop={12}
+          disabled={sharing}
         >
-          <Ionicons name="share-outline" size={24} color={colors.textSecondary} />
+          {sharing ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <Ionicons name="share-outline" size={24} color={colors.textSecondary} />
+          )}
         </Pressable>
 
         <Pressable onPress={handleDelete} hitSlop={12}>
