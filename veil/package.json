@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios",
+    "ios": "expo start --ios --udid E9AADA97-0477-4D48-A938-0DAC011C6A94",
     "web": "expo start --web"
   },
   "dependencies": {
