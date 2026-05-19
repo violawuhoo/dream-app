@@ -14,7 +14,16 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.veil.dreamapp"
+      "bundleIdentifier": "com.veil.dreamapp",
+      "buildNumber": "1",
+      "requiresFullScreen": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Face ID is used to securely authenticate your account.",
+        "NSPhotoLibraryAddUsageDescription": "Veil saves your dream posters to your photo library.",
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent",
+        "UIViewControllerBasedStatusBarAppearance": false
+      },
+      "minimumOsVersion": "16.0"
     },
     "android": {
       "adaptiveIcon": {

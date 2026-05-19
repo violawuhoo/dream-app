@@ -1,6 +1,7 @@
 {
   "name": "veil",
   "version": "1.0.0",
+  "description": "An AI-native dream journaling app",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
