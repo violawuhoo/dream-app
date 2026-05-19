@@ -20,6 +20,7 @@ export function useOrchestrator(
 ) {
   const [session, setSession] = useState(initialSession ?? createSession());
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const updateSession = (updates: any) => {
     setSession((prev: any) => ({ ...prev, ...updates }));
@@ -87,6 +88,7 @@ export function useOrchestrator(
       }
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       await sleep(800);
       const errorMsg = { role: "assistant", content: "Something went wrong. Let's try that again." };
       updateSession({ messages: [...updatedMessages, errorMsg] });
@@ -139,6 +141,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -169,6 +172,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       updateSession({ state: DreamFlowState.DONE });
     } finally {
       setIsProcessing(false);
@@ -201,6 +205,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       updateSession({ state: DreamFlowState.DONE });
     } finally {
       setIsProcessing(false);
@@ -264,9 +269,13 @@ export function useOrchestrator(
     setSession(createSession());
   };
 
+  const clearError = () => setError(null);
+
   return {
     session,
     isProcessing,
+    error,
+    clearError,
     handleUserMessage,
     proceedToStructuring,
     generateInterpretation,

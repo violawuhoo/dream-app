@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
 
 function RootNavigator() {
   useEffect(() => {
@@ -26,12 +27,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootNavigator />
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    </ClerkProvider>
+    <ErrorBoundary>
+      <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootNavigator />
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </ClerkProvider>
+    </ErrorBoundary>
   );
 }

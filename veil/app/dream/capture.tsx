@@ -26,6 +26,7 @@ import { VeilCard } from "../../src/components/ui/VeilCard";
 import { VeilInput } from "../../src/components/ui/VeilInput";
 import { LoadingDots } from "../../src/components/ui/LoadingDots";
 import { StreamingText } from "../../src/components/ui/StreamingText";
+import { Toast } from "../../src/components/ui/Toast";
 
 const STATE_CARD_STATES = [
   DreamFlowState.STRUCTURED,
@@ -38,6 +39,8 @@ export default function CaptureScreen() {
   const {
     session,
     isProcessing,
+    error,
+    clearError,
     handleUserMessage,
     generateInterpretation,
     skipInterpretation,
@@ -208,6 +211,16 @@ export default function CaptureScreen() {
             <View style={{ alignSelf: "flex-start", paddingHorizontal: 4, marginVertical: 4 }}>
               <LoadingDots />
             </View>
+          ) : !isProcessing && messages.length > 0 && messages[messages.length - 1]?.content?.includes("went wrong") ? (
+            <Pressable
+              onPress={() => {
+                const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+                if (lastUserMsg) handleUserMessage(lastUserMsg.content);
+              }}
+              style={{ alignSelf: "flex-start", paddingHorizontal: 4, marginVertical: 4 }}
+            >
+              <Text style={{ color: colors.accent, fontSize: 13 }}>Try again</Text>
+            </Pressable>
           ) : null
         }
         showsVerticalScrollIndicator={false}
@@ -280,6 +293,14 @@ export default function CaptureScreen() {
           )}
         </Animated.View>
       )}
+
+      {/* Error toast */}
+      <Toast
+        message={error ?? ""}
+        type="error"
+        visible={!!error}
+        onDismiss={clearError}
+      />
 
       {/* Input area */}
       <View
