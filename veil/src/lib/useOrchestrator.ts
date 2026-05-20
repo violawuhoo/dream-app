@@ -20,6 +20,7 @@ export function useOrchestrator(
 ) {
   const [session, setSession] = useState(initialSession ?? createSession());
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const updateSession = (updates: any) => {
     setSession((prev: any) => ({ ...prev, ...updates }));
@@ -33,6 +34,7 @@ export function useOrchestrator(
 
   const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
+    if (isProcessing) return;
 
     const newMessage = { role: "user", content: text };
     const updatedMessages = [...session.messages, newMessage];
@@ -80,6 +82,7 @@ export function useOrchestrator(
             nextCheckTurn: session.userTurnCount + 4,
           });
         } else {
+          updateSession({ state: DreamFlowState.EXPANDING });
           await askFollowUp({ ...session, messages: updatedMessages, state: DreamFlowState.EXPANDING });
         }
       } else if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
@@ -87,6 +90,7 @@ export function useOrchestrator(
       }
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       await sleep(800);
       const errorMsg = { role: "assistant", content: "Something went wrong. Let's try that again." };
       updateSession({ messages: [...updatedMessages, errorMsg] });
@@ -139,6 +143,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -169,6 +174,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       updateSession({ state: DreamFlowState.DONE });
     } finally {
       setIsProcessing(false);
@@ -201,6 +207,7 @@ export function useOrchestrator(
       });
     } catch (e) {
       console.error(e);
+      setError("The connection wavered. Please try again.");
       updateSession({ state: DreamFlowState.DONE });
     } finally {
       setIsProcessing(false);
@@ -264,9 +271,13 @@ export function useOrchestrator(
     setSession(createSession());
   };
 
+  const clearError = () => setError(null);
+
   return {
     session,
     isProcessing,
+    error,
+    clearError,
     handleUserMessage,
     proceedToStructuring,
     generateInterpretation,

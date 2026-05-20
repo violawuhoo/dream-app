@@ -278,6 +278,7 @@ export default function ProfileScreen() {
 
         {/* 3. Settings */}
         <VeilCard style={{ paddingHorizontal: 16, paddingVertical: 0 }}>
+          {/* DEFERRED: push notifications not yet implemented */}
           <SettingsRow
             label="Notifications"
             right={
