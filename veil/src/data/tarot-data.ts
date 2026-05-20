@@ -4,7 +4,7 @@ export interface TarotCard {
   meaning: string;
 }
 
-const cards: TarotCard[] = [
+export const cards: TarotCard[] = [
   { id: 0,  name: "The Fool",           meaning: "New beginnings, optimism, trust in life." },
   { id: 1,  name: "The Magician",       meaning: "Action, the power to manifest." },
   { id: 2,  name: "The High Priestess", meaning: "Inaction, going within, the subconscious." },

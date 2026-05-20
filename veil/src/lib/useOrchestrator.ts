@@ -34,6 +34,7 @@ export function useOrchestrator(
 
   const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
+    if (isProcessing) return;
 
     const newMessage = { role: "user", content: text };
     const updatedMessages = [...session.messages, newMessage];
@@ -81,6 +82,7 @@ export function useOrchestrator(
             nextCheckTurn: session.userTurnCount + 4,
           });
         } else {
+          updateSession({ state: DreamFlowState.EXPANDING });
           await askFollowUp({ ...session, messages: updatedMessages, state: DreamFlowState.EXPANDING });
         }
       } else if (session.state === DreamFlowState.AWAITING_LIFE_CONNECTION) {
