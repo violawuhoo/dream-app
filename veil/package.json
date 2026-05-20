@@ -8,7 +8,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:sim": "expo start --ios --udid E9AADA97-0477-4D48-A938-0DAC011C6A94",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:e2e:build": "detox build --configuration ios.sim.debug",
+    "test:e2e": "detox test --configuration ios.sim.debug",
+    "test:e2e:release": "detox test --configuration ios.sim.release"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.11",
@@ -44,6 +48,7 @@
   },
   "devDependencies": {
     "@testing-library/react-hooks": "^8.0.1",
+    "detox": "^20.0.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
