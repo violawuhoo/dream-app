@@ -184,7 +184,7 @@ const TarotCard = memo(function TarotCard({
         outerStyle,
       ]}
     >
-      <Pressable onPress={phase === "fan" ? onSelect : undefined}>
+      <Pressable testID={`tarot-card-${index}`} onPress={phase === "fan" ? onSelect : undefined}>
         <Animated.View style={flipStyle}>
           {showFaceUp ? (
             <View
@@ -304,7 +304,7 @@ export default function TarotScreen() {
       <StatusBar style="light" />
 
       {/* Fan of 22 cards */}
-      <View style={{ flex: 1 }}>
+      <View testID="section-tarot" style={{ flex: 1 }}>
         {fanCards.map((card) => (
           <TarotCard
             key={card.index}
@@ -367,6 +367,7 @@ export default function TarotScreen() {
               <View style={{ marginTop: 32, width: "100%" }}>
                 <VeilButton
                   label="Complete"
+                  testID="btn-tarot-complete"
                   onPress={() => router.back()}
                   variant="primary"
                 />

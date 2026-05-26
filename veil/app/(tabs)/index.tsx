@@ -149,7 +149,7 @@ export default function HomeScreen() {
 
           {/* Draft card — above moon button */}
           {hasDraft && (
-            <VeilCard style={{ width: "100%", marginTop: 24 }}>
+            <VeilCard testID="card-draft" style={{ width: "100%", marginTop: 24 }}>
               <Text
                 style={{
                   color: colors.textMuted,
@@ -161,10 +161,10 @@ export default function HomeScreen() {
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <VeilButton label="Continue" onPress={handleContinueDraft} variant="primary" />
+                  <VeilButton label="Continue" testID="btn-continue-draft" onPress={handleContinueDraft} variant="primary" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <VeilButton label="Start fresh" onPress={discardDraft} variant="ghost" />
+                  <VeilButton label="Start fresh" testID="btn-discard-draft" onPress={discardDraft} variant="ghost" />
                 </View>
               </View>
             </VeilCard>
@@ -173,6 +173,7 @@ export default function HomeScreen() {
           {/* Moon button */}
           <Animated.View style={[moonAnimStyle, { marginTop: 48, alignItems: "center" }]}>
             <Pressable
+              testID="btn-begin"
               onPress={() => router.push("/dream/capture")}
               onPressIn={() => {
                 moonScale.value = withTiming(0.95, { duration: 100 });

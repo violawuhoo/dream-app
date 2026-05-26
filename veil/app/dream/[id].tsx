@@ -266,7 +266,7 @@ export default function DreamDetailScreen() {
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <StatusBar style="light" />
         <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 20 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable testID="btn-back-dream" onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
         </View>
@@ -306,7 +306,7 @@ export default function DreamDetailScreen() {
           paddingBottom: 8,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable testID="btn-back-dream" onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
       </View>
@@ -370,7 +370,7 @@ export default function DreamDetailScreen() {
 
         {/* 2. Narrative */}
         {!!dream.narrative && (
-          <View style={{ marginTop: 28 }}>
+          <View testID="section-narrative" style={{ marginTop: 28 }}>
             <SectionLabel label="Narrative" />
             <VeilText
               variant="body"
@@ -384,7 +384,7 @@ export default function DreamDetailScreen() {
 
         {/* 3. Interpretation */}
         {interpretationSections.length > 0 && (
-          <View style={{ marginTop: 28 }}>
+          <View testID="section-interpretation" style={{ marginTop: 28 }}>
             <SectionLabel label="Interpretation" />
             <View style={{ gap: 12 }}>
               {interpretationSections.map((section, i) => (
@@ -424,7 +424,7 @@ export default function DreamDetailScreen() {
 
         {/* 5. Tarot */}
         {dream.tarot_card != null && (
-          <View style={{ marginTop: 28 }}>
+          <View testID="section-tarot" style={{ marginTop: 28 }}>
             <SectionLabel label="The Oracle" />
             <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
               {/* Small card visual */}
@@ -507,7 +507,7 @@ export default function DreamDetailScreen() {
           )}
         </Pressable>
 
-        <Pressable onPress={handleDelete} hitSlop={12}>
+        <Pressable testID="btn-delete-dream" onPress={handleDelete} hitSlop={12}>
           <Ionicons name="trash-outline" size={24} color={colors.error} />
         </Pressable>
       </View>

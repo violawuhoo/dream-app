@@ -8,8 +8,8 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffectiveUserId } from "../../src/lib/useEffectiveUserId";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import Animated, {
@@ -202,7 +202,7 @@ function DreamRow({
 
 export default function ArchiveScreen() {
   const insets = useSafeAreaInsets();
-  const { userId } = useAuth();
+  const effectiveUserId = useEffectiveUserId();
 
   const [dreams, setDreams] = useState<DreamItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,16 +217,16 @@ export default function ArchiveScreen() {
   }));
 
   const loadDreams = useCallback(async () => {
-    if (!userId) { setLoading(false); return; }
+    if (!effectiveUserId) { setLoading(false); return; }
     const { data } = await supabase
       .from("dream_records")
       .select("id, title, created_at, narrative, emotions, tarot_card")
-      .eq("user_id", userId)
+      .eq("user_id", effectiveUserId)
       .order("created_at", { ascending: false });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setDreams((data as any[]) ?? []);
     setLoading(false);
-  }, [userId]);
+  }, [effectiveUserId]);
 
   // Load on mount
   useEffect(() => { loadDreams(); }, [loadDreams]);
@@ -316,7 +316,7 @@ export default function ArchiveScreen() {
         >
           Archive
         </Text>
-        <Pressable onPress={toggleSearch} hitSlop={12}>
+        <Pressable testID="btn-search-toggle" onPress={toggleSearch} hitSlop={12}>
           <Ionicons
             name="search-outline"
             size={20}
@@ -331,6 +331,7 @@ export default function ArchiveScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search your dreams…"
+          testID="input-search-archive"
           autoFocus={searchOpen}
         />
       </Animated.View>
@@ -354,6 +355,7 @@ export default function ArchiveScreen() {
             <View style={{ width: "100%", marginTop: 4 }}>
               <VeilButton
                 label="Record your first dream"
+                testID="btn-record-first-dream"
                 onPress={() => router.push("/dream/capture")}
                 variant="ghost"
               />

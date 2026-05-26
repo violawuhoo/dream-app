@@ -192,7 +192,7 @@ export default function CaptureScreen() {
         }}
       >
         <Text style={{ color: colors.textMuted, fontSize: fontSizes.xs }}>Veil</Text>
-        <Pressable onPress={handleExit} hitSlop={12}>
+        <Pressable testID="btn-close-capture" onPress={handleExit} hitSlop={12}>
           <Ionicons name="close-outline" size={24} color={colors.textMuted} />
         </Pressable>
       </View>
@@ -235,12 +235,14 @@ export default function CaptureScreen() {
               <View style={{ marginTop: 12, gap: 8 }}>
                 <VeilButton
                   label="Interpret this dream"
+                  testID="btn-interpret"
                   onPress={generateInterpretation}
                   variant="primary"
                   loading={isProcessing}
                 />
                 <VeilButton
                   label="Just save it"
+                  testID="btn-skip-interpretation"
                   onPress={async () => { skipInterpretation(); await saveAndNavigate(); }}
                   variant="ghost"
                   disabled={isProcessing}
@@ -258,12 +260,14 @@ export default function CaptureScreen() {
               <View style={{ gap: 8 }}>
                 <VeilButton
                   label="Draw the Oracle"
+                  testID="btn-draw-oracle"
                   onPress={() => router.push("/dream/tarot")}
                   variant="primary"
                   disabled={isProcessing}
                 />
                 <VeilButton
                   label="I'm done"
+                  testID="btn-skip-tarot"
                   onPress={async () => { skipTarot(); await saveAndNavigate(); }}
                   variant="ghost"
                   disabled={isProcessing}
@@ -278,6 +282,7 @@ export default function CaptureScreen() {
               <View style={{ marginTop: 12, gap: 8 }}>
                 <VeilButton
                   label="Save & view"
+                  testID="btn-save-view"
                   onPress={saveAndNavigate}
                   variant="primary"
                   loading={isProcessing}
@@ -314,6 +319,7 @@ export default function CaptureScreen() {
       >
         <View style={{ flex: 1 }}>
           <VeilInput
+            testID="input-dream"
             value={inputText}
             onChangeText={setInputText}
             placeholder="Describe your dream…"
@@ -322,6 +328,7 @@ export default function CaptureScreen() {
           />
         </View>
         <Pressable
+          testID="btn-send"
           onPress={handleSend}
           disabled={isProcessing || !inputText.trim()}
           style={{ paddingBottom: 12 }}

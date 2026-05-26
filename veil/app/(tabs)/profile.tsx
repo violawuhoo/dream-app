@@ -14,6 +14,7 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffectiveUserId } from "../../src/lib/useEffectiveUserId";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { colors, fontSizes, borderRadius } from "../../src/theme/tokens";
@@ -92,8 +93,9 @@ function SettingsRow({
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { userId, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { user } = useUser();
+  const effectiveUserId = useEffectiveUserId();
 
   const [stats, setStats] = useState<Stats>({ total: 0, thisMonth: 0, withTarot: 0 });
   const [isGuest, setIsGuest] = useState(false);
@@ -105,12 +107,12 @@ export default function ProfileScreen() {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
 
     supabase
       .from("dream_records")
       .select("created_at, tarot_card")
-      .eq("user_id", userId)
+      .eq("user_id", effectiveUserId)
       .then(({ data }) => {
         if (!data) return;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,11 +125,11 @@ export default function ProfileScreen() {
           withTarot: rows.filter((r) => r.tarot_card != null).length,
         });
       });
-  }, [userId]);
+  }, [effectiveUserId]);
 
   const handleSignOut = useCallback(async () => {
-    await AsyncStorage.removeItem("veil_guest");
-    await signOut();
+    await AsyncStorage.multiRemove(["veil_guest", "veil_guest_id"]);
+    try { await signOut(); } catch { /* no active Clerk session for guest users */ }
     router.replace("/(auth)/sign-in");
   }, [signOut]);
 
@@ -141,30 +143,30 @@ export default function ProfileScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            if (userId) {
-              await supabase.from("dream_records").delete().eq("user_id", userId);
+            if (effectiveUserId) {
+              await supabase.from("dream_records").delete().eq("user_id", effectiveUserId);
             }
             try {
               await user?.delete();
             } catch {
-              // Guest or already deleted
+              // Guest or already deleted — no Clerk user to delete
             }
-            await AsyncStorage.removeItem("veil_guest");
+            await AsyncStorage.multiRemove(["veil_guest", "veil_guest_id"]);
             router.replace("/(auth)/sign-in");
           },
         },
       ],
     );
-  }, [userId, user]);
+  }, [effectiveUserId, user]);
 
   const handleExport = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     setExporting(true);
     try {
       const { data } = await supabase
         .from("dream_records")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", effectiveUserId)
         .order("created_at", { ascending: false });
 
       const json = JSON.stringify(data ?? [], null, 2);
@@ -179,7 +181,7 @@ export default function ProfileScreen() {
     } finally {
       setExporting(false);
     }
-  }, [userId]);
+  }, [effectiveUserId]);
 
   // Derived display values
   const displayName = user?.fullName ?? user?.firstName ?? (isGuest ? "Guest" : "Dreamer");
@@ -262,6 +264,7 @@ export default function ProfileScreen() {
             <View style={{ marginTop: 16, width: "100%" }}>
               <VeilButton
                 label="Create Account"
+                testID="btn-create-account"
                 onPress={() => router.replace("/(auth)/sign-in")}
                 variant="primary"
               />
@@ -312,8 +315,8 @@ export default function ProfileScreen() {
 
         {/* 4. Account */}
         <View style={{ marginTop: 32 }}>
-          <VeilButton label="Sign out" onPress={handleSignOut} variant="ghost" />
-          <Pressable onPress={handleDeleteAccount} style={{ marginTop: 20, alignItems: "center" }}>
+          <VeilButton label="Sign out" testID="btn-sign-out" onPress={handleSignOut} variant="ghost" />
+          <Pressable testID="btn-delete-account" onPress={handleDeleteAccount} style={{ marginTop: 20, alignItems: "center" }}>
             <Text style={{ color: colors.error, fontSize: fontSizes.xs }}>
               Delete account
             </Text>

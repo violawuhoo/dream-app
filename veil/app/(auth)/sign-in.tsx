@@ -64,7 +64,7 @@ function Star({ config }: { config: StarConfig }) {
   );
 }
 
-function AppleButton({ onPress, loading, disabled }: { onPress: () => void; loading: boolean; disabled: boolean }) {
+function AppleButton({ onPress, loading, disabled, testID }: { onPress: () => void; loading: boolean; disabled: boolean; testID?: string }) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -85,6 +85,7 @@ function AppleButton({ onPress, loading, disabled }: { onPress: () => void; load
           flexDirection: "row",
           gap: 10,
         }}
+        testID={testID}
         onPress={onPress}
         onPressIn={() => { scale.value = withTiming(0.96, { duration: 100 }); }}
         onPressOut={() => { scale.value = withTiming(1, { duration: 100 }); }}
@@ -149,6 +150,13 @@ export default function SignIn() {
 
   const handleGuest = useCallback(async () => {
     await AsyncStorage.setItem("veil_guest", "true");
+    // Generate a stable guest user ID for Supabase queries within this
+    // session.  Cleared automatically when the app is deleted (delete:true
+    // wipes AsyncStorage on the simulator).
+    const existingId = await AsyncStorage.getItem("veil_guest_id");
+    if (!existingId) {
+      await AsyncStorage.setItem("veil_guest_id", crypto.randomUUID());
+    }
     router.replace("/(tabs)");
   }, []);
 
@@ -211,6 +219,7 @@ export default function SignIn() {
         {/* Bottom — buttons with safe area */}
         <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
           <AppleButton
+            testID="btn-apple"
             onPress={() => handleOAuth("oauth_apple")}
             loading={loading === "apple"}
             disabled={loading !== null}
@@ -239,6 +248,7 @@ export default function SignIn() {
 
           <VeilButton
             label="Continue with Google"
+            testID="btn-google"
             onPress={() => handleOAuth("oauth_google")}
             variant="ghost"
             loading={loading === "google"}
@@ -246,6 +256,7 @@ export default function SignIn() {
           />
 
           <Pressable
+            testID="btn-guest"
             onPress={handleGuest}
             style={{ alignItems: "center", marginTop: 20 }}
           >

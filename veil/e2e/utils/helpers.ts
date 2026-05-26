@@ -32,7 +32,7 @@ export async function skipOnboardingIfPresent() {
   try {
     await waitFor(element(by.id("btn-skip-onboarding")))
       .toBeVisible()
-      .withTimeout(3000);
+      .withTimeout(TIMEOUT);
     await tapId("btn-skip-onboarding");
   } catch {
     // onboarding not shown — continue

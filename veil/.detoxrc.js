@@ -9,20 +9,20 @@ module.exports = {
       binaryPath:
         "ios/build/Build/Products/Debug-iphonesimulator/Veil.app",
       build:
-        "xcodebuild -workspace ios/Veil.xcworkspace -scheme Veil -sdk iphonesimulator -configuration Debug -derivedDataPath ios/build | xcpretty",
+        "export PATH=$PATH:/opt/homebrew/bin && pod install --project-directory=ios && xcodebuild -workspace ios/Veil.xcworkspace -scheme Veil -sdk iphonesimulator -configuration Debug -derivedDataPath ios/build -arch arm64 EXCLUDED_ARCHS=x86_64",
     },
     "ios.release": {
       type: "ios.app",
       binaryPath:
         "ios/build/Build/Products/Release-iphonesimulator/Veil.app",
       build:
-        "xcodebuild -workspace ios/Veil.xcworkspace -scheme Veil -sdk iphonesimulator -configuration Release -derivedDataPath ios/build | xcpretty",
+        "export PATH=$PATH:/opt/homebrew/bin && pod install --project-directory=ios && xcodebuild -workspace ios/Veil.xcworkspace -scheme Veil -sdk iphonesimulator -configuration Release -derivedDataPath ios/build -arch arm64 EXCLUDED_ARCHS=x86_64",
     },
   },
   devices: {
     simulator: {
       type: "ios.simulator",
-      device: { type: "iPhone 15" },
+      device: { type: "iPhone 16 Pro" },
     },
     simulator_se: {
       type: "ios.simulator",

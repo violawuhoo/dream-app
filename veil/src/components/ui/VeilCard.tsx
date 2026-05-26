@@ -6,6 +6,7 @@ interface VeilCardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  testID?: string;
 }
 
 const cardBase: ViewStyle = {
@@ -16,7 +17,7 @@ const cardBase: ViewStyle = {
   padding: 16,
 };
 
-export function VeilCard({ children, style, onPress }: VeilCardProps) {
+export function VeilCard({ children, style, onPress, testID }: VeilCardProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -35,6 +36,7 @@ export function VeilCard({ children, style, onPress }: VeilCardProps) {
     return (
       <Animated.View style={animatedStyle}>
         <Pressable
+          testID={testID}
           style={[cardBase, style]}
           onPress={onPress}
           onPressIn={handlePressIn}
@@ -46,5 +48,5 @@ export function VeilCard({ children, style, onPress }: VeilCardProps) {
     );
   }
 
-  return <View style={[cardBase, style]}>{children}</View>;
+  return <View testID={testID} style={[cardBase, style]}>{children}</View>;
 }

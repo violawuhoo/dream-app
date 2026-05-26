@@ -11,6 +11,7 @@ interface VeilButtonProps {
   loading?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
+  testID?: string;
 }
 
 const containerStyles: Record<Variant, ViewStyle> = {
@@ -56,7 +57,7 @@ const labelStyles: Record<Variant, TextStyle> = {
   danger: { color: colors.error, fontSize: fontSizes.base, fontWeight: "600" },
 };
 
-export function VeilButton({ label, onPress, variant = "primary", loading, disabled, icon }: VeilButtonProps) {
+export function VeilButton({ label, onPress, variant = "primary", loading, disabled, icon, testID }: VeilButtonProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -75,6 +76,7 @@ export function VeilButton({ label, onPress, variant = "primary", loading, disab
   return (
     <Animated.View style={animatedStyle}>
       <Pressable
+        testID={testID}
         style={containerStyles[variant]}
         onPress={onPress}
         onPressIn={handlePressIn}

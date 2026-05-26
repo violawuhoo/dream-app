@@ -4,6 +4,11 @@ const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const MAX_REQUESTS = 30;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 
+// Guest sessions send their stable UUID as the bearer token instead of a
+// Clerk JWT.  Accept any well-formed v4 UUID as a valid guest identity.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(request: Request): Promise<Response> {
   // 1. AUTH CHECK
   const authHeader = request.headers.get("Authorization");
@@ -17,7 +22,12 @@ export async function POST(request: Request): Promise<Response> {
     const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
     userId = payload.sub;
   } catch {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    // Not a valid Clerk JWT — accept a guest UUID as a session identifier.
+    if (UUID_RE.test(token)) {
+      userId = `guest:${token}`;
+    } else {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   // 2. RATE LIMITING

@@ -9,9 +9,10 @@ interface VeilInputProps {
   maxLength?: number;
   onSubmit?: () => void;
   autoFocus?: boolean;
+  testID?: string;
 }
 
-export function VeilInput({ value, onChangeText, placeholder, multiline, maxLength, onSubmit, autoFocus }: VeilInputProps) {
+export function VeilInput({ value, onChangeText, placeholder, multiline, maxLength, onSubmit, autoFocus, testID }: VeilInputProps) {
   const showCount = maxLength != null && value.length >= maxLength - 20;
   const remaining = maxLength != null ? maxLength - value.length : null;
 
@@ -36,6 +37,7 @@ export function VeilInput({ value, onChangeText, placeholder, multiline, maxLeng
             textAlignVertical: multiline ? "top" : "center",
           },
         ]}
+        testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

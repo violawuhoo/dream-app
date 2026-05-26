@@ -108,7 +108,7 @@ function PageTwo() {
   );
 }
 
-function PageThree({ onBegin }: { onBegin: () => void }) {
+function PageThree() {
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 }}>
       <Ionicons name="lock-closed-outline" size={64} color={colors.accent} />
@@ -135,9 +135,6 @@ function PageThree({ onBegin }: { onBegin: () => void }) {
       >
         Everything stays in your private account. We never read your dreams.
       </Text>
-      <View style={{ marginTop: 32, width: "100%" }}>
-        <VeilButton label="Begin" onPress={onBegin} variant="primary" />
-      </View>
     </View>
   );
 }
@@ -152,8 +149,9 @@ export default function OnboardingScreen() {
     router.replace("/(auth)/sign-in");
   };
 
-  const handleSkip = () => {
-    pagerRef.current?.setPage(2);
+  const handleSkip = async () => {
+    await AsyncStorage.setItem("veil_onboarded", "true");
+    router.replace("/(auth)/sign-in");
   };
 
   return (
@@ -163,6 +161,7 @@ export default function OnboardingScreen() {
       {/* Skip button — pages 0 and 1 only */}
       {page < 2 && (
         <Pressable
+          testID="btn-skip-onboarding"
           onPress={handleSkip}
           style={{
             position: "absolute",
@@ -190,7 +189,7 @@ export default function OnboardingScreen() {
           <PageTwo />
         </View>
         <View key="3">
-          <PageThree onBegin={handleBegin} />
+          <PageThree />
         </View>
       </PagerView>
 
@@ -200,11 +199,11 @@ export default function OnboardingScreen() {
           flexDirection: "row",
           justifyContent: "center",
           gap: 8,
-          paddingBottom: insets.bottom + 32,
+          paddingBottom: 16,
         }}
       >
         {[0, 1, 2].map((i) => (
-          <Pressable key={i} onPress={() => pagerRef.current?.setPage(i)} hitSlop={8}>
+          <Pressable key={i} testID={`dot-${i}`} onPress={() => pagerRef.current?.setPage(i)} hitSlop={8}>
             <View
               style={{
                 width: 8,
@@ -215,6 +214,16 @@ export default function OnboardingScreen() {
             />
           </Pressable>
         ))}
+      </View>
+
+      {/* Begin button — always visible so tests can find it from page 0 */}
+      <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16 }}>
+        <VeilButton
+          label="Begin"
+          onPress={handleBegin}
+          variant="primary"
+          testID="btn-begin-onboarding"
+        />
       </View>
     </View>
   );
