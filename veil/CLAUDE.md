@@ -6,6 +6,26 @@ React Native + Expo Router + Supabase app (`veil/`). Always `cd` into `veil/` be
 
 ---
 
+## iOS Physical Device Build
+
+```bash
+cd veil/ios && LANG=en_US.UTF-8 pod install   # required after any native change
+npm run ios:device                             # warm-up CoreDevice DDI, then build+deploy
+```
+
+### Known fix: `SwiftGeneratePch` race condition → "No such module 'Expo'"
+
+**Root cause:** `Veil.xcodeproj`'s Veil target had no explicit `PBXTargetDependency` on `Pods-Veil`. On a clean DerivedData, `SwiftGeneratePch` fired before any Pods target finished, found no `.modulemap` files, and poisoned the Swift module cache.
+
+**Fix (in `ios/Podfile` post_install):** After `react_native_post_install` finishes, a Ruby string-patch injects:
+- `PBXFileReference` for `Pods/Pods.xcodeproj` (in the existing Pods group — must be group-attached or CocoaPods GC will remove it on next integration)
+- `PBXContainerItemProxy` + `PBXTargetDependency` pointing to `Pods-Veil` target (UUID `A280FCE46C8A7C99703EE6CDFA66ED73`)
+- The dependency UUID into `Veil` target's `dependencies = ()` array
+
+The patch is idempotent (keyed on UUID `8D0A2B4C65E358F4B9F730A2`). `ios/` is gitignored so the Podfile change must be re-applied from scratch if the ios directory is regenerated via `expo prebuild`.
+
+---
+
 ## E2E Test Rules
 
 - e2e/ files **can be modified** — the previous "never touch e2e/" constraint has been lifted.
