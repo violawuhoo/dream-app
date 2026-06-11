@@ -72,21 +72,37 @@ describe("3.4 Tarot Oracle", () => {
     await waitForId("btn-save-view", LLM_TIMEOUT);
   });
 
-  it("3.4.5 — Skip tarot goes directly to Save & view", async () => {
-    // Save this dream first, then do another run to test skip
+  it("3.4.5 — Skip tarot saves immediately and navigates to dream detail", async () => {
+    // Save the oracle dream from 3.4.4 first, then run another pass to test skip
     await tapId("btn-save-view");
     await waitForId("btn-back-dream", TIMEOUT);
     await tapId("btn-back-dream");
 
     await reachTarotDecisionScreen();
+    // btn-skip-tarot is wired to skipTarot() + saveAndNavigate() — no save screen shown
     await tapId("btn-skip-tarot");
-    await waitForId("btn-save-view", LLM_TIMEOUT);
+    await waitForId("btn-back-dream", TIMEOUT);
   });
 
   it("3.4.6 — dream saved without tarot has no Oracle section", async () => {
+    // Already on dream detail from 3.4.5 (skip-tarot path)
+    await detoxExpect(element(by.id("section-tarot"))).not.toBeVisible();
+    await waitForId("section-narrative");
+  });
+
+  it("3.4.7 — dream saved with tarot shows Oracle section in detail", async () => {
+    // Back to home, run a full oracle path and verify section-tarot is visible
+    await tapId("btn-back-dream");
+    await reachTarotDecisionScreen();
+    await tapId("btn-draw-oracle");
+    await waitForId("tarot-card-0", TIMEOUT);
+    await tapId("tarot-card-0");
+    await waitForId("btn-tarot-complete", TIMEOUT);
+    await tapId("btn-tarot-complete");
+    await waitForId("btn-save-view", LLM_TIMEOUT);
     await tapId("btn-save-view");
     await waitForId("btn-back-dream", TIMEOUT);
-    await detoxExpect(element(by.id("section-tarot"))).not.toBeVisible();
+    await waitForId("section-tarot", TIMEOUT);
     await waitForId("section-narrative");
   });
 });

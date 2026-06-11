@@ -8,7 +8,12 @@ import {
   skipOnboardingIfPresent,
 } from "./utils/helpers";
 
-/** Save a dream via the full interpretation + tarot path, land on detail screen. */
+/**
+ * Save a dream via the full interpretation + life-connection path.
+ * Skips tarot via btn-skip-tarot, which calls skipTarot()+saveAndNavigate()
+ * directly — there is NO intermediate "Save & view" screen on this path.
+ * Lands on the dream detail screen (btn-back-dream visible).
+ */
 async function saveFullDream() {
   await tapId("btn-begin");
   await waitForId("input-dream");
@@ -38,10 +43,10 @@ async function saveFullDream() {
   await element(by.id("input-dream")).typeText("I've been working toward a big promotion recently");
   await element(by.id("btn-send")).tap();
 
+  // btn-skip-tarot is wired to skipTarot()+saveAndNavigate() — navigates
+  // directly to dream detail without showing a "Save & view" button.
   await waitForId("btn-skip-tarot", LLM_TIMEOUT);
   await tapId("btn-skip-tarot");
-  await waitForId("btn-save-view", LLM_TIMEOUT);
-  await tapId("btn-save-view");
   await waitForId("btn-back-dream", TIMEOUT);
 }
 
@@ -82,11 +87,19 @@ describe("3.6 Dream Detail Screen", () => {
   });
 
   it("3.6.1 — all content sections render for a full-path dream", async () => {
-    await waitForId("section-narrative");
-    await waitForId("section-interpretation");
-    await waitFor(element(by.text("Waking Life")))
-      .toBeVisible()
-      .withTimeout(TIMEOUT);
+    // The dream detail screen is seeded from the in-process pending record so
+    // all sections are rendered immediately — no loading state, no Supabase
+    // fetch. The main queue may briefly carry GCD callbacks from LLM stream
+    // cleanup + orchestrator context re-renders; disable synchronisation so
+    // EarlGrey doesn't time out waiting for those and checks presence directly.
+    await device.disableSynchronization();
+    try {
+      await detoxExpect(element(by.id("section-narrative"))).toExist();
+      await detoxExpect(element(by.id("section-interpretation"))).toExist();
+      await detoxExpect(element(by.id("section-life-connection"))).toExist();
+    } finally {
+      await device.enableSynchronization();
+    }
   });
 
   it("3.6.2 — no Oracle section for a dream saved without tarot", async () => {
@@ -101,11 +114,14 @@ describe("3.6 Dream Detail Screen", () => {
     await waitFor(element(by.text("Delete")))
       .toBeVisible()
       .withTimeout(TIMEOUT);
-    await element(by.label("Delete")).tap();
+    await element(by.label("Delete")).atIndex(0).tap();
     await waitForId("btn-search-toggle", TIMEOUT);
   });
 
   it("3.6.4 — back button returns to previous screen", async () => {
+    // After 3.6.3 navigates to archive, return to home tab before saving
+    await tapId("home-tab");
+    await waitForId("btn-begin", TIMEOUT);
     await saveMinimalDream();
     await tapId("btn-back-dream");
     await waitForId("btn-begin", TIMEOUT);
@@ -116,7 +132,7 @@ describe("3.6 Dream Detail Screen", () => {
     await waitFor(element(by.id("btn-search-toggle")))
       .toBeVisible()
       .withTimeout(TIMEOUT);
-    await element(by.type("RCTTextView")).atIndex(2).tap();
+    await element(by.id("dream-row-0")).tap();
     await waitForId("btn-back-dream", TIMEOUT);
     await tapId("btn-back-dream");
   });

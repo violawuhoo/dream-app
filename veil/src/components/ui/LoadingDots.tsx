@@ -1,49 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withDelay,
-} from "react-native-reanimated";
 import { colors } from "../../theme/tokens";
 
 const DOT_SIZE = 6;
 const STAGGER = 200;
+const CYCLE_MS = 600;
 
 function Dot({ delay }: { delay: number }) {
-  const opacity = useSharedValue(0.3);
+  const [bright, setBright] = useState(false);
 
   useEffect(() => {
-    opacity.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 300 }),
-          withTiming(0.3, { duration: 300 })
-        ),
-        -1,
-        false
-      )
-    );
+    let timer: ReturnType<typeof setTimeout>;
+    // Start the pulsing after the stagger delay.
+    const starter = setTimeout(() => {
+      setBright(true);
+      timer = setInterval(() => setBright((v) => !v), CYCLE_MS);
+    }, delay);
+    return () => {
+      clearTimeout(starter);
+      clearInterval(timer);
+    };
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
   return (
-    <Animated.View
-      style={[
-        {
-          width: DOT_SIZE,
-          height: DOT_SIZE,
-          borderRadius: DOT_SIZE / 2,
-          backgroundColor: colors.textMuted,
-          marginHorizontal: 3,
-        },
-        animatedStyle,
-      ]}
+    <View
+      style={{
+        width: DOT_SIZE,
+        height: DOT_SIZE,
+        borderRadius: DOT_SIZE / 2,
+        backgroundColor: colors.textMuted,
+        marginHorizontal: 3,
+        opacity: bright ? 1 : 0.3,
+      }}
     />
   );
 }

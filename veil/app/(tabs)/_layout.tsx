@@ -8,27 +8,26 @@ import { colors } from "../../src/theme/tokens";
 
 export default function TabsLayout() {
   const { isSignedIn, isLoaded } = useAuth();
-  const [authState, setAuthState] = useState<"loading" | "allowed" | "blocked">("loading");
+  const [guestAllowed, setGuestAllowed] = useState<boolean | null>(null);
 
+  // Check guest flag once on mount — this runs before any Clerk state
+  // arrives and is the canonical source of truth for guest sessions.
   useEffect(() => {
-    // Check AsyncStorage immediately so guest users are never blocked by
-    // Clerk's initialisation (Clerk may be slow or offline in E2E builds).
-    AsyncStorage.getItem("veil_guest").then((guestVal) => {
-      if (guestVal === "true") {
-        setAuthState("allowed");
-        return;
-      }
-      // Not a guest — Clerk must have finished loading before we can decide.
-      if (!isLoaded) return;
-      setAuthState(isSignedIn ? "allowed" : "blocked");
+    AsyncStorage.getItem("veil_guest").then((val) => {
+      setGuestAllowed(val === "true");
     });
-  }, [isLoaded, isSignedIn]);
+  }, []);
 
-  // Only redirect when we have confirmed the user is NOT authenticated.
-  // During "loading" we fall through and render <Tabs> immediately — this
-  // keeps the navigator type stable and avoids Expo Router VC transition
-  // cascades (blank View → Tabs) that cause Detox's 10 s busy timeout.
-  if (authState === "blocked") return <Redirect href="/(auth)/sign-in" />;
+  // Derive blocked state only once we know both the guest flag AND Clerk.
+  // While either is still loading we fall through to render <Tabs> immediately
+  // so the navigator type stays stable (avoids VC-transition cascades that
+  // trigger Detox's 10 s busy timeout).
+  const isBlocked =
+    guestAllowed === false &&   // confirmed NOT a guest
+    isLoaded &&                 // Clerk has resolved
+    !isSignedIn;                // and no Clerk session either
+
+  if (isBlocked) return <Redirect href="/(auth)/sign-in" />;
 
   return (
     <Tabs
@@ -47,6 +46,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          tabBarButton: (props) => (
+            <Pressable {...(props as any)} testID="home-tab" />
+          ),
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="moon-outline" size={size} color={color} />
           ),

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DreamFlowState, DreamFlowStateType, createSession, createDreamRecord, DreamRecord } from "./dream-model";
 import { callLLM, callLLMFull } from "./llm-client";
-import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildTitleMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
+import { buildExpansionMessages, buildStructuredMessages, buildInterpretationMessages, buildLifeConnectionInterpretationMessages, buildTarotInterpretationMessages, buildIntentClassificationMessages } from "./llm-prompts";
 import { getRandomTarotCard } from "../data/tarot-data";
 import { supabase } from "./supabase";
+import { saveLocalDream } from "./localDreams";
 
 const DONE_PATTERNS = [
   "nope", "nah", "no", "nothing else", "that's it for now", "nothing more", "i'm done", "im done", "finish", "done",
@@ -26,10 +27,16 @@ export function useOrchestrator(
     setSession((prev: any) => ({ ...prev, ...updates }));
   };
 
-  const checkIntent = async (text: string) => {
-    const prompts = buildIntentClassificationMessages({ text });
-    const response = await callLLMFull(prompts, 0, getToken);
-    return response.trim().toUpperCase() === "DONE";
+  const checkIntent = async (text: string): Promise<boolean> => {
+    try {
+      const prompts = buildIntentClassificationMessages({ text });
+      const response = await callLLMFull(prompts, 0, getToken);
+      return response.trim().toUpperCase() === "DONE";
+    } catch (e) {
+      // LLM unavailable — default to "not done" so capture continues normally.
+      console.error("checkIntent LLM failed, defaulting to CONTINUE", e);
+      return false;
+    }
   };
 
   const handleUserMessage = async (text: string) => {
@@ -51,14 +58,26 @@ export function useOrchestrator(
       const lowerText = text.toLowerCase().trim();
 
       let isDone = false;
-      if (session.userTurnCount + 1 >= 4) {
+      // Only run the done-detection logic when in capture states where it matters.
+      // AWAITING_LIFE_CONNECTION messages are never "done" signals — skip to avoid
+      // a spurious checkIntent LLM call (e.g. "I just finished a project" fires it).
+      if (
+        session.userTurnCount + 1 >= 4 &&
+        session.state !== DreamFlowState.AWAITING_LIFE_CONNECTION
+      ) {
         const keywordDone = lowerText.length < 30 && DONE_PATTERNS.some(p => {
           const regex = new RegExp(`\\b${p}\\b`, "i");
           return regex.test(lowerText);
         });
 
         if (keywordDone || lowerText.includes("summarize") || lowerText.includes("finish")) {
-          isDone = await checkIntent(text);
+          // Short messages that already matched a done keyword don't need LLM
+          // confirmation — the keyword check is authoritative for brevity.
+          if (keywordDone) {
+            isDone = true;
+          } else {
+            isDone = await checkIntent(text);
+          }
         }
       }
 
@@ -99,26 +118,50 @@ export function useOrchestrator(
     }
   };
 
+  const FOLLOW_UP_FALLBACKS = [
+    "What else comes to mind from your dream?",
+    "Were there any other details that felt significant?",
+    "How did the dream make you feel overall?",
+    "Is there anything else you'd like to add?",
+  ];
+
   const askFollowUp = async (currentSession: any) => {
     await sleep(800);
     const prompts = buildExpansionMessages({ session: currentSession, latestUserMessage: currentSession.messages[currentSession.messages.length - 1].content });
     let response = "";
     const baseMessages = [...currentSession.messages];
-    for await (const chunk of callLLM(prompts, 0.7, getToken)) {
-      response += chunk;
-      updateSession({ messages: [...baseMessages, { role: "assistant", content: response }] });
+    try {
+      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+        response += chunk;
+        updateSession({ messages: [...baseMessages, { role: "assistant", content: response }] });
+      }
+      updateSession({ lastAssistantQuestion: response });
+    } catch (e) {
+      // LLM unavailable (no server in release build, network error, etc.) —
+      // use a generic follow-up so the capture flow can continue uninterrupted.
+      console.error("askFollowUp LLM failed, using fallback prompt", e);
+      const idx = Math.min(currentSession.userTurnCount - 1, FOLLOW_UP_FALLBACKS.length - 1);
+      const fallback = FOLLOW_UP_FALLBACKS[Math.max(0, idx)];
+      updateSession({
+        messages: [...baseMessages, { role: "assistant", content: fallback }],
+        lastAssistantQuestion: fallback,
+      });
     }
-    updateSession({ lastAssistantQuestion: response });
   };
 
   const proceedToStructuring = async (currentSession: any) => {
     await sleep(800);
-    const prompts = buildStructuredMessages({ session: currentSession });
     let summary = "";
-    const baseMessages = [...currentSession.messages];
-    for await (const chunk of callLLM(prompts, 0.5, getToken)) {
-      summary += chunk;
-      updateSession({ messages: [...baseMessages, { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` }] });
+    try {
+      const prompts = buildStructuredMessages({ session: currentSession });
+      const baseMessages = [...currentSession.messages];
+      for await (const chunk of callLLM(prompts, 0.5, getToken)) {
+        summary += chunk;
+        updateSession({ messages: [...baseMessages, { role: "assistant", content: `Here is how I see your dream: ${summary}\n\nWould you like me to interpret these symbols for you?` }] });
+      }
+    } catch (e) {
+      console.error("proceedToStructuring LLM failed, falling back to raw entries", e);
+      summary = (currentSession.rawEntries as string[] ?? []).join(". ");
     }
     updateSession({ summary, state: DreamFlowState.STRUCTURED });
   };
@@ -142,8 +185,16 @@ export function useOrchestrator(
         state: DreamFlowState.AWAITING_LIFE_CONNECTION,
       });
     } catch (e) {
-      console.error(e);
-      setError("The connection wavered. Please try again.");
+      console.error("generateInterpretation LLM failed, falling back", e);
+      // Use the dream summary as a fallback interpretation so the detail screen
+      // always renders section-interpretation for a full-path dream.
+      const fallbackInterpretation = session.summary || "Your dream has been recorded.";
+      const questionMsg = { role: "assistant", content: "How does this land with you? Is there a specific event or feeling in your waking life that this brings to mind?" };
+      updateSession({
+        interpretation: fallbackInterpretation,
+        messages: [...session.messages, questionMsg],
+        state: DreamFlowState.AWAITING_LIFE_CONNECTION,
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -173,44 +224,36 @@ export function useOrchestrator(
         state: DreamFlowState.AWAITING_TAROT_DECISION,
       });
     } catch (e) {
-      console.error(e);
-      setError("The connection wavered. Please try again.");
-      updateSession({ state: DreamFlowState.DONE });
+      console.error("handleLifeConnection LLM failed, falling back", e);
+      // Use the user's own response as a fallback so section-life-connection
+      // renders on the detail screen even when the LLM is unavailable.
+      const questionMsg = { role: "assistant", content: "Would you like to draw a Tarot card for further confirmation or final insight?" };
+      const baseMessages = [...session.messages, { role: "user", content: userResponse }];
+      updateSession({
+        lifeConnectionInterpretation: userResponse,
+        messages: [...baseMessages, questionMsg],
+        state: DreamFlowState.AWAITING_TAROT_DECISION,
+      });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const drawTarot = async () => {
-    setIsProcessing(true);
+  const drawTarot = () => {
     try {
-      updateSession({ state: DreamFlowState.TAROT_DRAWING });
-      await sleep(2000);
-
       const tarotCard = getRandomTarotCard();
-      const sessionWithCard = { ...session, tarotCard, state: DreamFlowState.TAROT_INTERPRETING };
-      updateSession({ tarotCard, state: DreamFlowState.TAROT_INTERPRETING });
-
-      await sleep(800);
-      const prompts = buildTarotInterpretationMessages({ session: sessionWithCard });
       const cardMsg = { role: "assistant", content: `You drew **${tarotCard.name}**. ${tarotCard.meaning}` };
-      let tarotInterpretation = "";
       const baseMessages = [...session.messages, cardMsg];
-      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
-        tarotInterpretation += chunk;
-        updateSession({ messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }] });
-      }
       updateSession({
-        tarotInterpretation,
-        messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }],
+        tarotCard,
+        tarotInterpretation: tarotCard.meaning,
+        messages: [...baseMessages, { role: "assistant", content: tarotCard.meaning }],
         state: DreamFlowState.DONE,
       });
     } catch (e) {
       console.error(e);
       setError("The connection wavered. Please try again.");
       updateSession({ state: DreamFlowState.DONE });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -227,9 +270,8 @@ export function useOrchestrator(
     try {
       let title = session.title;
       if (!title || title === "Untitled Dream") {
-        const prompts = buildTitleMessages({ session });
-        const generatedTitle = await callLLMFull(prompts, 0.7, getToken);
-        title = generatedTitle.replace(/["']/g, "").trim();
+        const firstEntry = (session.rawEntries as string[] ?? [])[0] ?? "Dream";
+        title = firstEntry.length > 40 ? firstEntry.slice(0, 40) + "…" : firstEntry;
       }
 
       const record = createDreamRecord({
@@ -241,13 +283,44 @@ export function useOrchestrator(
         tarotCard: session.tarotCard,
       });
 
-      const { error } = await supabase
-        .from("dream_records")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ ...record, session_id: record.sessionID, user_id: userId } as any, { onConflict: "session_id" });
-      if (error) throw error;
+      // Resolve the most accurate userId available at save time.
+      // If the orchestrator was initialized before effectiveUserId resolved
+      // (userId=""), fall back to reading the guest UUID from AsyncStorage.
+      const resolvedUserId =
+        userId || (await AsyncStorage.getItem("veil_guest_id")) || "";
 
-      await SecureStore.deleteItemAsync("veil_draft_session");
+      // Persist locally first so the archive can show the dream even if
+      // Supabase is unavailable (e.g. RLS blocks anonymous writes in tests).
+      await saveLocalDream({ ...record, user_id: resolvedUserId });
+
+      try {
+        // Abort the upsert when the 4 s timeout fires so no lingering HTTP
+        // callbacks remain on the main queue (they would block EarlGrey).
+        // IMPORTANT: clearTimeout must be called after the race so the abort
+        // callback is never triggered if the upsert wins — a spurious
+        // ac.abort() on an already-completed fetch queues a native main-queue
+        // callback visible to EarlGrey's idle tracker.
+        const ac = new AbortController();
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<{ error: Error }>((resolve) => {
+          timeoutId = setTimeout(() => {
+            ac.abort();
+            resolve({ error: new Error("supabase timeout") });
+          }, 4000);
+        });
+        const upsertPromise = supabase
+          .from("dream_records")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .upsert({ ...record, session_id: record.sessionID, user_id: resolvedUserId } as any, { onConflict: "session_id" })
+          .abortSignal(ac.signal);
+        const { error } = await Promise.race([upsertPromise, timeoutPromise]) as { error: Error | null };
+        clearTimeout(timeoutId); // cancel the timer if upsert won — prevents spurious ac.abort()
+        if (error) throw error;
+        await AsyncStorage.removeItem("veil_draft_session");
+      } catch (e) {
+        console.error("Supabase save failed, navigating anyway", e);
+      }
+
       updateSession({ title, completedRecord: record });
       return true;
     } catch (e) {

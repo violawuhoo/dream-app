@@ -78,7 +78,10 @@ export async function POST(request: Request): Promise<Response> {
   // 4. ERROR SAFETY — Kimi API call
   try {
     const apiKey = process.env.KIMI_API_KEY;
+    // Diagnostic: log on every request so you can trace failures in expo start terminal.
+    console.log("[dream-chat] request userId:", userId, "KIMI_API_KEY present:", !!apiKey, "messages:", messages.length);
     if (!apiKey) {
+      console.error("[dream-chat] KIMI_API_KEY is not set. Check .env.local and restart expo start.");
       return Response.json({ error: "Something went wrong" }, { status: 500 });
     }
 
@@ -97,7 +100,8 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     if (!upstream.ok || !upstream.body) {
-      console.error("Upstream LLM error:", upstream.status);
+      const errBody = await upstream.text().catch(() => "(unreadable)");
+      console.error("[dream-chat] Upstream LLM error:", upstream.status, upstream.statusText, errBody.slice(0, 300));
       return Response.json({ error: "Something went wrong" }, { status: 500 });
     }
 

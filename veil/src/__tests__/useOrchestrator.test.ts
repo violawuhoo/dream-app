@@ -17,7 +17,17 @@ jest.mock("../lib/llm-prompts", () => ({
 }));
 
 jest.mock("../lib/supabase", () => {
-  const upsertMock = jest.fn(async () => ({ error: null }));
+  // Real Supabase query builders are chainable thenables with .abortSignal().
+  // Return the same shape so .abortSignal(ac.signal) chaining in saveRecord works.
+  const makeChainable = (value: any) => {
+    const obj: any = {
+      abortSignal: () => obj,
+      then: (res: any, rej?: any) => Promise.resolve(value).then(res, rej),
+      catch: (rej: any) => Promise.resolve(value).catch(rej),
+    };
+    return obj;
+  };
+  const upsertMock = jest.fn(() => makeChainable({ error: null }));
   const fromMock = jest.fn(() => ({
     upsert: upsertMock,
     select: jest.fn(() => ({
@@ -28,6 +38,7 @@ jest.mock("../lib/supabase", () => {
     supabase: { from: fromMock },
     __fromMock: fromMock,
     __upsertMock: upsertMock,
+    __makeChainable: makeChainable,
   };
 });
 
@@ -36,6 +47,7 @@ jest.mock("../data/tarot-data", () => ({
 }));
 
 import { renderHook, act } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { callLLM, callLLMFull } from "../lib/llm-client";
 import { useOrchestrator } from "../lib/useOrchestrator";
@@ -47,7 +59,11 @@ const mockCallLLMFull = callLLMFull as jest.Mock;
 // Access the inner mocks via requireMock
 function getSupabaseMocks() {
   const mod = jest.requireMock("../lib/supabase") as any;
-  return { fromMock: mod.__fromMock as jest.Mock, upsertMock: mod.__upsertMock as jest.Mock };
+  return {
+    fromMock: mod.__fromMock as jest.Mock,
+    upsertMock: mod.__upsertMock as jest.Mock,
+    makeChainable: mod.__makeChainable as (value: any) => any,
+  };
 }
 
 async function* fakeLLMStream(chunks: string[]) {
@@ -79,7 +95,8 @@ beforeEach(() => {
     })),
   }));
   upsertMock.mockClear();
-  upsertMock.mockResolvedValue({ error: null });
+  const { makeChainable } = getSupabaseMocks();
+  upsertMock.mockImplementation(() => makeChainable({ error: null }));
 });
 
 describe("1.4 Orchestrator State Machine", () => {
@@ -151,19 +168,20 @@ describe("1.4 Orchestrator State Machine", () => {
     expect(result.current.session.state).toBe("AWAITING_CONTINUE_DECISION");
   });
 
-  test("1.4.8 'Done' keyword at turn ≥ 4 calls checkIntent via callLLMFull", async () => {
+  test("1.4.8 'Done' keyword at turn ≥ 4 skips checkIntent and transitions to STRUCTURED", async () => {
     const { result } = setupHook();
     for (let i = 0; i < 4; i++) {
       await act(async () => {
         await result.current.handleUserMessage(`message ${i}`);
       });
     }
-    mockCallLLMFull.mockResolvedValue("DONE");
     mockCallLLM.mockImplementation(() => fakeLLMStream(["summarized"]));
     await act(async () => {
       await result.current.handleUserMessage("done");
     });
-    expect(mockCallLLMFull).toHaveBeenCalled();
+    // Short keyword match bypasses LLM intent check — isDone is set directly.
+    expect(mockCallLLMFull).not.toHaveBeenCalled();
+    expect(result.current.session.state).toBe("STRUCTURED");
   });
 
   test("1.4.9 proceedToStructuring sets state to STRUCTURED", async () => {
@@ -232,25 +250,25 @@ describe("1.4 Orchestrator State Machine", () => {
     expect(upsertArg.user_id).toBe(userId);
   });
 
-  test("1.4.16 saveRecord deletes SecureStore draft on success", async () => {
-    mockCallLLMFull.mockResolvedValue("A Title");
+  test("1.4.16 saveRecord removes AsyncStorage draft on Supabase success", async () => {
     const { result } = setupHook();
     await act(async () => {
       await result.current.saveRecord();
     });
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("veil_draft_session");
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith("veil_draft_session");
   });
 
-  test("1.4.17 saveRecord returns false on Supabase error", async () => {
-    mockCallLLMFull.mockResolvedValue("A Title");
-    const { upsertMock } = getSupabaseMocks();
-    upsertMock.mockResolvedValueOnce({ error: new Error("db error") });
+  test("1.4.17 saveRecord returns true even on Supabase error (local save succeeded)", async () => {
+    const { upsertMock, makeChainable } = getSupabaseMocks();
+    upsertMock.mockImplementationOnce(() => makeChainable({ error: new Error("db error") }));
     const { result } = setupHook();
     let returnValue: boolean | undefined;
     await act(async () => {
       returnValue = await result.current.saveRecord();
     });
-    expect(returnValue).toBe(false);
+    // Supabase error is caught in the inner try-catch; local save already
+    // succeeded, so saveRecord returns true and the flow continues normally.
+    expect(returnValue).toBe(true);
   });
 
   test("1.4.18 resetSession returns state to RAW with fresh ID", async () => {
@@ -266,7 +284,7 @@ describe("1.4 Orchestrator State Machine", () => {
     expect(result.current.session.sessionID).not.toBe(originalId);
   });
 
-  test("1.4.19 LLM error sets error state string", async () => {
+  test("1.4.19 askFollowUp LLM error uses fallback message, error state stays null", async () => {
     mockCallLLM.mockImplementation(async function* () {
       throw new Error("LLM failure");
     });
@@ -274,7 +292,13 @@ describe("1.4 Orchestrator State Machine", () => {
     await act(async () => {
       await result.current.handleUserMessage("test");
     });
-    expect(result.current.error).not.toBeNull();
+    // askFollowUp catches LLM errors internally and uses a fallback prompt;
+    // the error is never surfaced to the user as an error state.
+    expect(result.current.error).toBeNull();
+    const messages = result.current.session.messages;
+    const lastMsg = messages[messages.length - 1];
+    expect(lastMsg.role).toBe("assistant");
+    expect(lastMsg.content).toBe("What else comes to mind from your dream?");
   });
 
   test("1.4.20 clearError sets error to null", async () => {
@@ -295,5 +319,134 @@ describe("1.4 Orchestrator State Machine", () => {
     const preBuilt = createSession();
     const { result } = setupHook(preBuilt);
     expect(result.current.session.sessionID).toBe(preBuilt.sessionID);
+  });
+
+  test("1.4.22 askFollowUp LLM failure shows fallback message, isProcessing returns to false", async () => {
+    mockCallLLM.mockImplementation(async function* () {
+      throw new Error("LLM failure");
+    });
+    const { result } = setupHook();
+    await act(async () => {
+      await result.current.handleUserMessage("I was flying");
+    });
+    const messages = result.current.session.messages;
+    const lastMsg = messages[messages.length - 1];
+    expect(lastMsg.content).toBeTruthy();
+    expect(result.current.error).toBeNull();
+    expect(result.current.isProcessing).toBe(false);
+  });
+
+  test("1.4.23 askFollowUp LLM failure does not advance state beyond EXPANDING", async () => {
+    mockCallLLM.mockImplementation(async function* () {
+      throw new Error("LLM failure");
+    });
+    const { result } = setupHook();
+    await act(async () => {
+      await result.current.handleUserMessage("I was at the beach");
+    });
+    expect(result.current.session.state).toBe("EXPANDING");
+  });
+
+  test("1.4.24 checkIntent LLM failure defaults to CONTINUE — state is not STRUCTURED", async () => {
+    mockCallLLMFull.mockRejectedValue(new Error("LLM failure"));
+    const { result } = setupHook();
+    for (let i = 0; i < 4; i++) {
+      await act(async () => {
+        await result.current.handleUserMessage(`message ${i}`);
+      });
+    }
+    // Long message (≥30 chars) containing "finish" triggers checkIntent via callLLMFull
+    await act(async () => {
+      await result.current.handleUserMessage("I want to finish describing this dream right now");
+    });
+    expect(result.current.session.state).not.toBe("STRUCTURED");
+    expect(result.current.error).toBeNull();
+  });
+
+  test("1.4.25 proceedToStructuring LLM failure falls back to raw entries joined by '. '", async () => {
+    mockCallLLM.mockImplementation(async function* () {
+      throw new Error("LLM failure");
+    });
+    const { result } = setupHook();
+    await act(async () => {
+      await result.current.proceedToStructuring({
+        ...result.current.session,
+        rawEntries: ["entry 1", "entry 2"],
+      });
+    });
+    expect(result.current.session.summary).toBe("entry 1. entry 2");
+    expect(result.current.session.state).toBe("STRUCTURED");
+  });
+
+  test("1.4.26 generateInterpretation LLM failure advances state to AWAITING_LIFE_CONNECTION", async () => {
+    mockCallLLM.mockImplementation(async function* () {
+      throw new Error("LLM failure");
+    });
+    const { result } = setupHook();
+    await act(async () => {
+      await result.current.generateInterpretation();
+    });
+    expect(result.current.session.state).toBe("AWAITING_LIFE_CONNECTION");
+    const messages = result.current.session.messages;
+    const lastMsg = messages[messages.length - 1];
+    expect(lastMsg.content).toContain("waking life");
+    expect(result.current.error).toBeNull();
+  });
+
+  test("1.4.27 handleLifeConnection LLM failure advances state to AWAITING_TAROT_DECISION", async () => {
+    mockCallLLM.mockImplementation(async function* () {
+      throw new Error("LLM failure");
+    });
+    const { result } = setupHook();
+    await act(async () => {
+      await result.current.handleLifeConnection("I just finished a big project");
+    });
+    expect(result.current.session.state).toBe("AWAITING_TAROT_DECISION");
+    expect(result.current.error).toBeNull();
+  });
+
+  test("1.4.28 AWAITING_LIFE_CONNECTION messages never trigger done-detection", async () => {
+    const initial = {
+      ...createSession(),
+      state: "AWAITING_LIFE_CONNECTION" as ReturnType<typeof createSession>["state"],
+      userTurnCount: 6,
+    };
+    const { result } = renderHook(() => useOrchestrator(userId, getToken, initial));
+    mockCallLLMFull.mockClear();
+    mockCallLLM.mockImplementation(() => fakeLLMStream(["life connection response"]));
+    await act(async () => {
+      await result.current.handleUserMessage("I just finished a project at work");
+    });
+    expect(mockCallLLMFull).not.toHaveBeenCalled();
+    expect(result.current.session.state).toBe("AWAITING_TAROT_DECISION");
+  });
+
+  test("1.4.29 Pure keyword done message at turn ≥ 4 skips callLLMFull", async () => {
+    const { result } = setupHook();
+    for (let i = 0; i < 4; i++) {
+      await act(async () => {
+        await result.current.handleUserMessage(`message ${i}`);
+      });
+    }
+    mockCallLLM.mockImplementation(() => fakeLLMStream(["summarized"]));
+    mockCallLLMFull.mockClear();
+    await act(async () => {
+      await result.current.handleUserMessage("done");
+    });
+    expect(mockCallLLMFull).not.toHaveBeenCalled();
+    expect(result.current.session.state).toBe("STRUCTURED");
+  });
+
+  test("1.4.30 saveRecord falls back to guest UUID from AsyncStorage when userId is empty", async () => {
+    // First AsyncStorage.getItem call (for veil_guest_id) returns the guest UUID
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce("abc-uuid");
+    const { result } = renderHook(() => useOrchestrator("", getToken));
+    await act(async () => {
+      await result.current.saveRecord();
+    });
+    const { upsertMock } = getSupabaseMocks();
+    expect(upsertMock).toHaveBeenCalled();
+    const upsertArg = upsertMock.mock.calls[0][0];
+    expect(upsertArg.user_id).toBe("abc-uuid");
   });
 });

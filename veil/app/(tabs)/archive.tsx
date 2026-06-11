@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Keyboard,
   Pressable,
   SectionList,
   Text,
@@ -13,6 +14,7 @@ import { useEffectiveUserId } from "../../src/lib/useEffectiveUserId";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -27,8 +29,8 @@ import {
   borderRadius,
 } from "../../src/theme/tokens";
 import { supabase } from "../../src/lib/supabase";
+import { getLocalDreams, deleteLocalDream } from "../../src/lib/localDreams";
 import { VeilButton } from "../../src/components/ui/VeilButton";
-import { VeilCard } from "../../src/components/ui/VeilCard";
 import { VeilInput } from "../../src/components/ui/VeilInput";
 import { VeilText } from "../../src/components/ui/VeilText";
 
@@ -82,6 +84,7 @@ function SkeletonCard() {
       -1,
       false,
     );
+    return () => cancelAnimation(opacity);
   }, []);
 
   const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -113,9 +116,11 @@ function SkeletonCard() {
 function DreamRow({
   item,
   onDelete,
+  testID,
 }: {
   item: DreamItem;
   onDelete: (id: string) => void;
+  testID?: string;
 }) {
   const handleLongPress = () => {
     Alert.alert("Delete dream?", item.title ?? "This dream", [
@@ -129,72 +134,78 @@ function DreamRow({
   };
 
   return (
-    <VeilCard
-      style={{ marginVertical: 4 }}
+    <Pressable
+      testID={testID}
+      style={{
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+        marginVertical: 4,
+      }}
       onPress={() => router.push(`/dream/${item.id}`)}
+      onLongPress={handleLongPress}
     >
-      <Pressable onLongPress={handleLongPress}>
+      <View style={{ marginBottom: 2 }}>
         <Text
           style={{
             color: colors.textPrimary,
             fontSize: fontSizes.base,
             fontWeight: "500",
-            marginBottom: 2,
           }}
           numberOfLines={1}
         >
           {item.title ?? "Untitled Dream"}
         </Text>
+      </View>
 
+      <Text
+        style={{ color: colors.textMuted, fontSize: fontSizes.xs, marginBottom: 6 }}
+      >
+        {formatItemDate(item.created_at)}
+      </Text>
+
+      {!!item.narrative && (
         <Text
-          style={{ color: colors.textMuted, fontSize: fontSizes.xs, marginBottom: 6 }}
+          style={{ color: colors.textMuted, fontSize: fontSizes.xs, marginBottom: 10 }}
+          numberOfLines={1}
         >
-          {formatItemDate(item.created_at)}
+          {item.narrative.slice(0, 70)}
         </Text>
+      )}
 
-        {!!item.narrative && (
-          <Text
-            style={{ color: colors.textMuted, fontSize: fontSizes.xs, marginBottom: 10 }}
-            numberOfLines={1}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {item.emotions?.slice(0, 2).map((e, i) => (
+          <View
+            key={i}
+            style={{
+              backgroundColor: colors.accentSoft,
+              borderRadius: borderRadius.full,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
           >
-            {item.narrative.slice(0, 70)}
-          </Text>
-        )}
+            <Text style={{ color: colors.accent, fontSize: fontSizes.xs - 1 }}>
+              {e}
+            </Text>
+          </View>
+        ))}
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {/* First 2 emotion chips */}
-          {item.emotions?.slice(0, 2).map((e, i) => (
+        {item.tarot_card != null && (
+          <View style={{ marginLeft: "auto" }}>
             <View
-              key={i}
               style={{
-                backgroundColor: colors.accentSoft,
-                borderRadius: borderRadius.full,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: colors.gold,
               }}
-            >
-              <Text style={{ color: colors.accent, fontSize: fontSizes.xs - 1 }}>
-                {e}
-              </Text>
-            </View>
-          ))}
-
-          {/* Gold tarot dot */}
-          {item.tarot_card != null && (
-            <View style={{ marginLeft: "auto" }}>
-              <View
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: colors.gold,
-                }}
-              />
-            </View>
-          )}
-        </View>
-      </Pressable>
-    </VeilCard>
+            />
+          </View>
+        )}
+      </View>
+    </Pressable>
   );
 }
 
@@ -218,13 +229,33 @@ export default function ArchiveScreen() {
 
   const loadDreams = useCallback(async () => {
     if (!effectiveUserId) { setLoading(false); return; }
-    const { data } = await supabase
-      .from("dream_records")
-      .select("id, title, created_at, narrative, emotions, tarot_card")
-      .eq("user_id", effectiveUserId)
-      .order("created_at", { ascending: false });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setDreams((data as any[]) ?? []);
+
+    // Abort the Supabase fetch after 3 s so a slow/blocked network doesn't
+    // keep EarlGrey busy indefinitely during E2E tests.
+    const ac = new AbortController();
+    const timeoutId = setTimeout(() => ac.abort(), 3000);
+
+    const [supabaseResult, localDreams] = await Promise.all([
+      supabase
+        .from("dream_records")
+        .select("id, title, created_at, narrative, emotions, tarot_card")
+        .eq("user_id", effectiveUserId)
+        .order("created_at", { ascending: false })
+        .abortSignal(ac.signal)
+        .then((r) => r)
+        .catch(() => ({ data: null })),
+      getLocalDreams(effectiveUserId),
+    ]);
+
+    clearTimeout(timeoutId);
+
+    const supabaseDreams = (supabaseResult.data as any[]) ?? [];
+    const remoteIds = new Set(supabaseDreams.map((d: any) => d.id));
+    const onlyLocal = localDreams.filter((d) => !remoteIds.has(d.id));
+    const merged = [...supabaseDreams, ...onlyLocal].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    setDreams(merged as any[]);
     setLoading(false);
   }, [effectiveUserId]);
 
@@ -240,11 +271,22 @@ export default function ArchiveScreen() {
     const opening = !searchOpen;
     setSearchOpen(opening);
     searchHeight.value = withTiming(opening ? 48 : 0, { duration: 250 });
-    if (!opening) setQuery("");
+    if (!opening) {
+      setQuery("");
+      // Dismiss the keyboard when the search bar closes.  The TextInput
+      // remains mounted (just hidden at height 0) so iOS keeps it as the
+      // first responder.  Without an explicit dismiss, the keyboard stays
+      // visible until the user taps elsewhere — a subtle UX bug and, in
+      // E2E tests, a layout-shift that cancels gesture recognisers.
+      Keyboard.dismiss();
+    }
   };
 
   const handleDelete = useCallback(async (id: string) => {
-    await supabase.from("dream_records").delete().eq("id", id);
+    await Promise.all([
+      supabase.from("dream_records").delete().eq("id", id),
+      deleteLocalDream(id),
+    ]);
     setDreams((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
@@ -364,10 +406,11 @@ export default function ArchiveScreen() {
         </View>
       ) : (
         <SectionList
+          testID="archive-section-list"
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <DreamRow item={item} onDelete={handleDelete} />
+          renderItem={({ item, index }) => (
+            <DreamRow item={item} onDelete={handleDelete} testID={`dream-row-${index}`} />
           )}
           renderSectionHeader={({ section }) => (
             <Text

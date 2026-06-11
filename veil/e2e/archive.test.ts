@@ -32,9 +32,21 @@ async function saveDream(description: string) {
   await waitFor(element(by.id("btn-search-toggle")))
     .toBeVisible()
     .withTimeout(TIMEOUT);
+  // Wait for the dream list to finish loading (not just the header bar).
+  // Skeleton animations block EarlGrey sync; this confirms the list is ready
+  // before beforeAll returns so 3.5.1 doesn't race against loadDreams.
+  await waitFor(element(by.id("dream-row-0")))
+    .toBeVisible()
+    .withTimeout(LLM_TIMEOUT);
 }
 
 describe("3.5 Archive Screen", () => {
+  // Re-enable EarlGrey sync after every test so tests that disable sync
+  // (3.5.5, 3.5.6) never leave subsequent tests in an unsynchronised state.
+  afterEach(async () => {
+    await device.enableSynchronization();
+  });
+
   beforeAll(async () => {
     await device.launchApp({ newInstance: true, delete: true });
     await skipOnboardingIfPresent();
@@ -43,16 +55,20 @@ describe("3.5 Archive Screen", () => {
   });
 
   it("3.5.1 — dreams listed grouped by month header", async () => {
+    // React Native applies textTransform:"uppercase" to the underlying string
+    // before passing it to native, so EarlGrey sees the uppercase form.
     const monthYear = new Date()
       .toLocaleString("en-US", { month: "long", year: "numeric" })
       .toUpperCase();
-    await waitForText(monthYear);
+    await waitForText(monthYear, LLM_TIMEOUT);
   });
 
   it("3.5.2 — tapping a dream card opens detail screen", async () => {
+    // Toggle search open and closed to confirm the icon responds, then tap
+    // the first dream card and verify the detail screen opens.
     await element(by.id("btn-search-toggle")).tap();
     await element(by.id("btn-search-toggle")).tap();
-    await element(by.type("RCTTextView")).atIndex(2).tap();
+    await element(by.id("dream-row-0")).tap();
     await waitForId("btn-back-dream", TIMEOUT);
     await element(by.id("btn-back-dream")).tap();
     await waitForId("btn-search-toggle");
@@ -71,18 +87,32 @@ describe("3.5 Archive Screen", () => {
     await waitForText("No dreams match your search.");
     await element(by.id("input-search-archive")).clearText();
     await tapId("btn-search-toggle");
+    // After search closes, toggleSearch() calls Keyboard.dismiss() so the
+    // keyboard and layout are fully settled before 3.5.5 starts its longPress.
+    await waitForId("dream-row-0", TIMEOUT);
   });
 
   it("3.5.5 — long-press shows delete alert", async () => {
-    await element(by.type("RCTView")).atIndex(5).longPress();
-    await waitForText("Delete");
-    await element(by.label("Cancel")).tap();
+    // Keep sync disabled through the entire interaction.
+    // Re-enabling sync right after longPress lets EarlGrey's idle detector
+    // block on the SectionList scroll recogniser indefinitely.
+    // afterEach() re-enables sync unconditionally even on failure.
+    await device.disableSynchronization();
+    await element(by.id("dream-row-0")).longPress();
+    await waitForText("Delete", LLM_TIMEOUT);
+    // atIndex(0): guard against a second "Cancel" in the hierarchy (keyboard
+    // toolbar or nav-bar Cancel from a previous screen transition).
+    await element(by.label("Cancel")).atIndex(0).tap();
   });
 
   it("3.5.6 — confirm delete removes the dream card", async () => {
-    await element(by.type("RCTView")).atIndex(5).longPress();
-    await waitForText("Delete");
-    await element(by.label("Delete")).tap();
+    // Sync ON: confirm the row is still present after Cancel was tapped.
+    await waitForId("dream-row-0", TIMEOUT);
+    await device.disableSynchronization();
+    await element(by.id("dream-row-0")).longPress();
+    await waitForText("Delete", LLM_TIMEOUT);
+    await element(by.label("Delete")).atIndex(0).tap();
+    await device.enableSynchronization();
     await waitForText("Your dreams will live here.", TIMEOUT);
   });
 

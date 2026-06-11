@@ -8,6 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -17,6 +18,7 @@ import Animated, {
 import { borderRadius, colors, fontSizes, letterSpacing as ls } from "../../src/theme/tokens";
 import { Toast } from "../../src/components/ui/Toast";
 import { VeilButton } from "../../src/components/ui/VeilButton";
+import { generateUUID } from "../../src/lib/uuid";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const STAR_FIELD_H = SCREEN_H * 0.4;
@@ -39,6 +41,7 @@ function Star({ config }: { config: StarConfig }) {
       -1,
       false,
     );
+    return () => cancelAnimation(translateY);
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -155,7 +158,7 @@ export default function SignIn() {
     // wipes AsyncStorage on the simulator).
     const existingId = await AsyncStorage.getItem("veil_guest_id");
     if (!existingId) {
-      await AsyncStorage.setItem("veil_guest_id", crypto.randomUUID());
+      await AsyncStorage.setItem("veil_guest_id", generateUUID());
     }
     router.replace("/(tabs)");
   }, []);

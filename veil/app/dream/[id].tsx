@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -16,13 +16,6 @@ import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
 import { format } from "date-fns";
 import {
   colors,
@@ -34,6 +27,8 @@ import { supabase } from "../../src/lib/supabase";
 import { VeilButton } from "../../src/components/ui/VeilButton";
 import { VeilCard } from "../../src/components/ui/VeilCard";
 import { VeilText } from "../../src/components/ui/VeilText";
+import { useOrchestratorContext } from "../../src/lib/OrchestratorContext";
+import { consumePendingDreamRecord } from "../../src/lib/pendingDreamRecord";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,31 +113,18 @@ function SkeletonBar({
   height?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  const opacity = useSharedValue(0.3);
-
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 800 }),
-        withTiming(0.3, { duration: 800 }),
-      ),
-      -1,
-      false,
-    );
-  }, []);
-
-  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
+  // Static (no Reanimated) — infinite animations keep EarlGrey permanently
+  // busy, preventing toBeVisible() assertions from ever resolving.
   return (
-    <Animated.View
+    <View
       style={[
         {
           width: width as ViewStyle["width"],
           height,
           backgroundColor: colors.surfaceElevated,
           borderRadius: borderRadius.sm,
+          opacity: 0.4,
         } satisfies ViewStyle,
-        animStyle,
         style,
       ]}
     />
@@ -166,43 +148,92 @@ function LoadingSkeleton() {
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
+function recToDreamRow(rec: any): DreamRow {
+  return {
+    id: rec.id,
+    created_at: rec.created_at ?? "",
+    title: rec.title ?? null,
+    narrative: rec.narrative ?? null,
+    emotions: rec.emotions ?? null,
+    interpretation: rec.interpretation ?? null,
+    life_connection_interpretation: rec.life_connection_interpretation ?? null,
+    tarot_card: rec.tarot_card ? (rec.tarot_card as TarotCardData) : null,
+    tarot_interpretation: rec.tarot_interpretation ?? null,
+  };
+}
+
 export default function DreamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { session } = useOrchestratorContext();
 
-  const [dream, setDream] = useState<DreamRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Keep a ref so the Supabase timeout callback can always read the latest
+  // completedRecord even if the initial render beat the context update.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  // seededRef tracks whether we initialised dream from a local source so the
+  // useEffect knows to skip (and not fire) any Supabase network requests.
+  const seededRef = useRef(false);
+
+  // Use lazy useState so the singleton read (a side-effect) runs exactly once,
+  // even if React renders the component multiple times during concurrent mode.
+  const [dream, setDream] = useState<DreamRow | null>(() => {
+    // consumePendingDreamRecord reads the record written by capture.tsx right
+    // before router.replace(), guaranteeing it's available before React context
+    // has a chance to propagate the session update.
+    const pending = id ? consumePendingDreamRecord(id) : null;
+    const rec = pending ?? (session.completedRecord as any);
+    const row = rec && rec.id === id ? recToDreamRow(rec) : null;
+    seededRef.current = row !== null;
+    return row;
+  });
+  const [loading, setLoading] = useState(() => !seededRef.current);
   const [notFound, setNotFound] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
 
-    supabase
-      .from("dream_records")
-      .select("*")
-      .eq("id", id)
-      .single()
+    // When seeded from local data (just after capture), skip the network fetch.
+    // Any in-flight network request blocks EarlGrey's idle tracker, causing
+    // waitFor().toBeVisible() to time out even when the element is on screen.
+    if (seededRef.current) return;
+
+    const ac = new AbortController();
+    const FETCH_TIMEOUT = 5000;
+
+    const timeoutId = setTimeout(() => {
+      // Abort the network request so EarlGrey sees the app as idle.
+      ac.abort();
+      const rec = sessionRef.current.completedRecord as any;
+      if (rec && rec.id === id) {
+        setDream(recToDreamRow(rec));
+      } else {
+        setNotFound(true);
+      }
+      setLoading(false);
+    }, FETCH_TIMEOUT);
+
+    supabase.from("dream_records").select("*").eq("id", id).single()
+      .abortSignal(ac.signal)
       .then(({ data, error }) => {
+        clearTimeout(timeoutId);
+        if (ac.signal.aborted) return;
         if (error || !data) {
-          setNotFound(true);
+          const rec = sessionRef.current.completedRecord as any;
+          if (rec && rec.id === id) {
+            setDream(recToDreamRow(rec));
+          } else {
+            setNotFound(true);
+          }
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const row = data as any;
-          setDream({
-            id: row.id,
-            created_at: row.created_at ?? "",
-            title: row.title ?? null,
-            narrative: row.narrative ?? null,
-            emotions: row.emotions ?? null,
-            interpretation: row.interpretation ?? null,
-            life_connection_interpretation: row.life_connection_interpretation ?? null,
-            tarot_card: row.tarot_card ? (row.tarot_card as TarotCardData) : null,
-            tarot_interpretation: row.tarot_interpretation ?? null,
-          });
+          setDream(recToDreamRow(data));
         }
         setLoading(false);
       });
+
+    return () => { clearTimeout(timeoutId); ac.abort(); };
   }, [id]);
 
   const handleShare = async () => {
@@ -250,7 +281,17 @@ export default function DreamDetailScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await supabase.from("dream_records").delete().eq("id", id!);
+            // Abort the delete after 3 s so no lingering HTTP callback keeps
+            // EarlGrey's main-queue tracker busy after navigation.
+            const ac = new AbortController();
+            const timeout = setTimeout(() => ac.abort(), 3000);
+            try {
+              await supabase.from("dream_records").delete().eq("id", id!).abortSignal(ac.signal);
+            } catch {
+              // ignore RLS errors and abort errors
+            } finally {
+              clearTimeout(timeout);
+            }
             router.replace("/(tabs)/archive");
           },
         },
@@ -278,13 +319,18 @@ export default function DreamDetailScreen() {
   // ── Error ────────────────────────────────────────────────────────────────
   if (notFound || !dream) {
     return (
-      <View
-        style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: 24 }}
-      >
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         <StatusBar style="light" />
-        <VeilText variant="body">Dream not found.</VeilText>
-        <View style={{ marginTop: 16, width: "100%" }}>
-          <VeilButton label="Return home" onPress={() => router.replace("/(tabs)")} variant="primary" />
+        <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 20 }}>
+          <Pressable testID="btn-back-dream" onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <VeilText variant="body">Dream not found.</VeilText>
+          <View style={{ marginTop: 16, width: "100%" }}>
+            <VeilButton label="Return home" onPress={() => router.replace("/(tabs)")} variant="primary" />
+          </View>
         </View>
       </View>
     );
@@ -412,7 +458,7 @@ export default function DreamDetailScreen() {
 
         {/* 4. Life Connection */}
         {!!dream.life_connection_interpretation && (
-          <View style={{ marginTop: 28 }}>
+          <View testID="section-life-connection" style={{ marginTop: 28 }}>
             <SectionLabel label="Waking Life" />
             <VeilCard>
               <VeilText variant="body" color={colors.textSecondary}>
@@ -496,6 +542,7 @@ export default function DreamDetailScreen() {
         }}
       >
         <Pressable
+          testID="btn-share-dream"
           onPress={handleShare}
           hitSlop={12}
           disabled={sharing}
@@ -505,6 +552,10 @@ export default function DreamDetailScreen() {
           ) : (
             <Ionicons name="share-outline" size={24} color={colors.textSecondary} />
           )}
+        </Pressable>
+
+        <Pressable testID="archive-tab" onPress={() => router.replace("/(tabs)/archive")} hitSlop={12}>
+          <Ionicons name="journal-outline" size={24} color={colors.textSecondary} />
         </Pressable>
 
         <Pressable testID="btn-delete-dream" onPress={handleDelete} hitSlop={12}>

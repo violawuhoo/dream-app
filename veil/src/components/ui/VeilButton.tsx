@@ -1,5 +1,4 @@
-import { ActivityIndicator, Pressable, Text, ViewStyle, TextStyle } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { ActivityIndicator, Pressable, Text, View, ViewStyle, TextStyle } from "react-native";
 import { colors, fontSizes, borderRadius } from "../../theme/tokens";
 
 type Variant = "primary" | "ghost" | "danger";
@@ -58,29 +57,12 @@ const labelStyles: Record<Variant, TextStyle> = {
 };
 
 export function VeilButton({ label, onPress, variant = "primary", loading, disabled, icon, testID }: VeilButtonProps) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: disabled ? 0.5 : 1,
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 100 });
-  };
-
   return (
-    <Animated.View style={animatedStyle}>
+    <View style={{ opacity: disabled ? 0.5 : 1 }}>
       <Pressable
         testID={testID}
         style={containerStyles[variant]}
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
         disabled={disabled || loading}
       >
         {loading ? (
@@ -92,6 +74,6 @@ export function VeilButton({ label, onPress, variant = "primary", loading, disab
           </>
         )}
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }

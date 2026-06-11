@@ -1,7 +1,7 @@
 module.exports = {
   testRunner: {
     args: { $0: "jest", config: "e2e/jest.config.js" },
-    jest: { setupTimeout: 120000 },
+    jest: { setupTimeout: 300000 },
   },
   apps: {
     "ios.debug": {
@@ -17,6 +17,12 @@ module.exports = {
         "ios/build/Build/Products/Release-iphonesimulator/Veil.app",
       build:
         "export PATH=$PATH:/opt/homebrew/bin && pod install --project-directory=ios && xcodebuild -workspace ios/Veil.xcworkspace -scheme Veil -sdk iphonesimulator -configuration Release -derivedDataPath ios/build -arch arm64 EXCLUDED_ARCHS=x86_64",
+      launchArgs: {
+        // Tell the Detox synchronizer (and EarlGrey beneath it) to ignore
+        // long-running LLM streaming and Supabase REST calls so that
+        // assertions are not held up waiting for background requests.
+        detoxURLBlacklistRegex: '\\(".*supabase\\.co.*",".*api/dream-chat.*",".*api/generate-poster.*",".*clerk.*",".*clerk-telemetry.*"\\)',
+      },
     },
   },
   devices: {

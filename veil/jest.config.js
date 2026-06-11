@@ -8,7 +8,8 @@ module.exports = {
     "^expo-secure-store$": "<rootDir>/src/__mocks__/expo-secure-store.js",
     "^@supabase/supabase-js$": "<rootDir>/src/__mocks__/supabase-js.js",
     "^react-native-reanimated$": "<rootDir>/src/__mocks__/react-native-reanimated.js",
+    "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
   },
   setupFiles: ["<rootDir>/src/__tests__/setup.js"],
-  testPathIgnorePatterns: ["/node_modules/", "src/__tests__/setup.js"],
+  testPathIgnorePatterns: ["/node_modules/", "src/__tests__/setup.js", "/e2e/"],
 };

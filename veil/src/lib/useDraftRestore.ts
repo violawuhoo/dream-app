@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createSession } from "./dream-model";
 
 type Session = ReturnType<typeof createSession>;
@@ -22,7 +22,7 @@ export function useDraftRestore({ session, updateSession, resetSession }: UseDra
   useEffect(() => {
     (async () => {
       try {
-        const stored = await SecureStore.getItemAsync(DRAFT_KEY);
+        const stored = await AsyncStorage.getItem(DRAFT_KEY);
         if (!stored) return;
         const parsed: Session & { _savedAt: string } = JSON.parse(stored);
         const ageHours = (Date.now() - new Date(parsed._savedAt).getTime()) / (1000 * 60 * 60);
@@ -31,7 +31,7 @@ export function useDraftRestore({ session, updateSession, resetSession }: UseDra
           setDraftAge(Math.floor(ageHours));
           setDraftSession(parsed);
         } else {
-          await SecureStore.deleteItemAsync(DRAFT_KEY);
+          await AsyncStorage.removeItem(DRAFT_KEY);
         }
       } catch {
         // ignore corrupt or missing data
@@ -41,16 +41,21 @@ export function useDraftRestore({ session, updateSession, resetSession }: UseDra
 
   useEffect(() => {
     if (session.rawEntries.length === 0) return;
+    // Only save drafts during active capture (before structuring). Once the
+    // flow reaches STRUCTURED or beyond, the user is past the capture phase
+    // and saving a partial draft would be misleading on restore.
+    const captureStates = ["RAW", "EXPANDING", "AWAITING_CONTINUE_DECISION"];
+    if (!captureStates.includes(session.state as string)) return;
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(async () => {
       try {
         const payload = JSON.stringify({ ...session, _savedAt: new Date().toISOString() });
-        await SecureStore.setItemAsync(DRAFT_KEY, payload);
+        await AsyncStorage.setItem(DRAFT_KEY, payload);
       } catch {
         // ignore write errors
       }
-    }, 1000);
+    }, 2000);
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -65,7 +70,7 @@ export function useDraftRestore({ session, updateSession, resetSession }: UseDra
   };
 
   const discardDraft = async () => {
-    await SecureStore.deleteItemAsync(DRAFT_KEY);
+    await AsyncStorage.removeItem(DRAFT_KEY);
     setHasDraft(false);
     setDraftSession(null);
     resetSession();

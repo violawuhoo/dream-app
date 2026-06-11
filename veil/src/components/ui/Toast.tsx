@@ -23,19 +23,19 @@ const bgColor = {
 
 export function Toast({ message, type, visible, onDismiss }: ToastProps) {
   const insets = useSafeAreaInsets();
-  const translateY = useSharedValue(-120);
+  const translateY = useSharedValue(120);
 
   useEffect(() => {
     if (visible) {
       translateY.value = withTiming(0, { duration: 300 });
       const timer = setTimeout(() => {
-        translateY.value = withTiming(-120, { duration: 300 }, (finished?: boolean) => {
+        translateY.value = withTiming(120, { duration: 300 }, (finished?: boolean) => {
           if (finished) runOnJS(onDismiss)();
         });
       }, 4000);
       return () => clearTimeout(timer);
     } else {
-      translateY.value = withTiming(-120, { duration: 300 });
+      translateY.value = withTiming(120, { duration: 300 });
     }
   }, [visible]);
 
@@ -48,7 +48,7 @@ export function Toast({ message, type, visible, onDismiss }: ToastProps) {
       style={[
         {
           position: "absolute",
-          top: insets.top + 8,
+          bottom: insets.bottom + 16,
           left: 16,
           right: 16,
           backgroundColor: bgColor[type],

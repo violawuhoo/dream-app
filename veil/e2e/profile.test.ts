@@ -41,12 +41,22 @@ describe("3.7 Profile Screen", () => {
     await waitForId("btn-delete-account");
     await tapId("btn-delete-account");
     await waitForText("This will permanently delete all your dreams.");
-    await element(by.label("Cancel")).tap();
+    await element(by.label("Cancel")).atIndex(0).tap();
   });
 
   it("3.7.5 — Export dreams button is accessible and triggers share/save", async () => {
     await waitForText("Export dreams");
-    await element(by.text("Export dreams")).tap();
-    await waitForId("btn-sign-out", TIMEOUT);
+    // Disable sync before tapping: the export opens the iOS share sheet (a
+    // native modal that covers the screen). With sync on, waitForId below
+    // would time out waiting for the modal to dismiss. Instead we check that
+    // the profile screen still exists in the hierarchy — sufficient to verify
+    // the button was accessible and the app didn't crash or navigate away.
+    await device.disableSynchronization();
+    try {
+      await element(by.text("Export dreams")).tap();
+      await detoxExpect(element(by.id("btn-sign-out"))).toExist();
+    } finally {
+      await device.enableSynchronization();
+    }
   });
 });

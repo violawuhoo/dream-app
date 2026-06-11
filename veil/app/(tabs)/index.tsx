@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { Dimensions, Pressable, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -51,17 +52,22 @@ export default function HomeScreen() {
   const [latestDream, setLatestDream] = useState<{ id: string; title: string } | null>(null);
 
   // Orb pulse: scale 1.0 → 1.08 → 1.0 every 4000ms
+  // useFocusEffect cancels when navigating away — tabs stay mounted so
+  // useEffect cleanup never fires, leaving the infinite animation running.
   const orbScale = useSharedValue(1);
-  useEffect(() => {
-    orbScale.value = withRepeat(
-      withSequence(
-        withTiming(1.08, { duration: 2000 }),
-        withTiming(1.0, { duration: 2000 }),
-      ),
-      -1,
-      false,
-    );
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      orbScale.value = withRepeat(
+        withSequence(
+          withTiming(1.08, { duration: 2000 }),
+          withTiming(1.0, { duration: 2000 }),
+        ),
+        -1,
+        false,
+      );
+      return () => cancelAnimation(orbScale);
+    }, []),
+  );
 
   const orbAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: orbScale.value }],
@@ -89,8 +95,8 @@ export default function HomeScreen() {
   }, [userId]);
 
   const handleContinueDraft = () => {
-    restoreDraft();
-    router.push("/dream/capture");
+    // Pass restore=true so DreamLayout knows to load the saved draft session.
+    router.push("/dream/capture?restore=true");
   };
 
   return (
@@ -108,21 +114,15 @@ export default function HomeScreen() {
           },
         ]}
       >
-        <BlurView
-          intensity={30}
-          tint="default"
-          style={{ borderRadius: 140, overflow: "hidden" }}
-        >
-          <View
-            style={{
-              width: 280,
-              height: 280,
-              borderRadius: 140,
-              backgroundColor: colors.accentSoft,
-              opacity: 0.4,
-            }}
-          />
-        </BlurView>
+        <View
+          style={{
+            width: 280,
+            height: 280,
+            borderRadius: 140,
+            backgroundColor: colors.accentSoft,
+            opacity: 0.4,
+          }}
+        />
       </Animated.View>
 
       {/* Main content */}

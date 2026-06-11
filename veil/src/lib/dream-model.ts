@@ -1,3 +1,5 @@
+import { generateUUID } from "./uuid";
+
 export const DreamFlowState = {
   RAW: "RAW",
   EXPANDING: "EXPANDING",
@@ -16,8 +18,8 @@ export type DreamFlowStateType = typeof DreamFlowState[keyof typeof DreamFlowSta
 
 export function createDreamRecord(fields: any) {
   return {
-    id: fields.id || crypto.randomUUID(),
-    sessionID: fields.sessionID || crypto.randomUUID(),
+    id: fields.id || generateUUID(),
+    sessionID: fields.sessionID || generateUUID(),
     created_at: fields.created_at || new Date().toISOString(),
     raw_input: fields.raw_input ?? "",
     narrative: fields.narrative ?? fields.summary ?? "",
@@ -34,7 +36,7 @@ export function createDreamRecord(fields: any) {
 
 export function createSession() {
   return {
-    sessionID: crypto.randomUUID(),
+    sessionID: generateUUID(),
     state: DreamFlowState.RAW as DreamFlowStateType,
     rawEntries: [] as string[],
     messages: [] as any[],

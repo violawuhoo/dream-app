@@ -56,4 +56,26 @@ describe("1.2 Dream Model", () => {
     const record: DreamRecord = createDreamRecord({ summary: "test" });
     expect(record).toBeDefined();
   });
+
+  test("2.2.1 createSession initialises userTurnCount to 0", () => {
+    const session = createSession();
+    expect(session.userTurnCount).toBe(0);
+  });
+
+  test("2.2.2 Two createSession calls produce different sessionIDs", () => {
+    const s1 = createSession();
+    const s2 = createSession();
+    expect(s1.sessionID).not.toBe(s2.sessionID);
+  });
+
+  test("2.2.3 createDreamRecord maps interpretation from session", () => {
+    const record = createDreamRecord({ interpretation: "You feel free" });
+    expect(record.interpretation).toBe("You feel free");
+  });
+
+  test("2.2.4 createDreamRecord title defaults to empty string when not provided", () => {
+    // Title fallback to "Untitled Dream" is handled in saveRecord, not createDreamRecord.
+    const record = createDreamRecord({});
+    expect(record.title).toBe("");
+  });
 });

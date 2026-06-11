@@ -1,5 +1,4 @@
 import { Pressable, View, StyleProp, ViewStyle } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors, borderRadius } from "../../theme/tokens";
 
 interface VeilCardProps {
@@ -18,33 +17,11 @@ const cardBase: ViewStyle = {
 };
 
 export function VeilCard({ children, style, onPress, testID }: VeilCardProps) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    if (onPress) scale.value = withTiming(0.97, { duration: 100 });
-  };
-
-  const handlePressOut = () => {
-    if (onPress) scale.value = withTiming(1, { duration: 100 });
-  };
-
   if (onPress) {
     return (
-      <Animated.View style={animatedStyle}>
-        <Pressable
-          testID={testID}
-          style={[cardBase, style]}
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          {children}
-        </Pressable>
-      </Animated.View>
+      <Pressable testID={testID} style={[cardBase, style]} onPress={onPress}>
+        {children}
+      </Pressable>
     );
   }
 
