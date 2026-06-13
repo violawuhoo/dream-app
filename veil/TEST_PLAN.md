@@ -97,6 +97,28 @@ File: `src/__tests__/useOrchestrator.test.ts`
 | 1.4.29 Pure keyword done at turn ≥ 4 skips callLLMFull entirely | ✅ |
 | 1.4.30 saveRecord falls back to guest UUID from AsyncStorage when userId is empty | ✅ |
 
+### 1.4 — Orchestrator State Machine (new — from DESIGN_INTENT.md review)
+
+File: `src/__tests__/useOrchestrator.test.ts`
+
+| Test | Status | Intent section |
+|---|---|---|
+| 1.4.31 saveRecord calls saveLocalDream BEFORE Supabase upsert | ❌ to write | §6 §9 — local save must always succeed first |
+| 1.4.32 skipTarot + saveRecord preserves narrative and interpretation, tarot_card is null | ❌ to write | §7 — skipping tarot causes no data loss |
+
+**1.4.31 spec:**
+- Mock `saveLocalDream` and Supabase upsert separately, both as jest.fn()
+- Call `saveRecord()`
+- Assert `saveLocalDream` was called
+- Assert it was called BEFORE Supabase upsert (use `jest.fn()` call order or manually sequence with a flag)
+
+**1.4.32 spec:**
+- Set up session with `summary: "a dream summary"`, `interpretation: "an interpretation"`, `lifeConnectionInterpretation: "life context"`, `tarotCard: null`
+- Call `skipTarot()` then `saveRecord()`
+- Assert Supabase upsert was called with `narrative` non-empty, `interpretation` non-empty, `life_connection_interpretation` non-empty, `tarot_card: null`
+
+---
+
 ### 1.5 — Draft Restore (tests updated, not new)
 
 | Test | Status | Change |
@@ -124,6 +146,30 @@ File: `src/__tests__/llm-prompts.test.ts` — all passing ✅
 
 ---
 
+### 2.1 — Prompt Builders (new — from DESIGN_INTENT.md review)
+
+File: `src/__tests__/llm-prompts.test.ts`
+
+| Test | Status | Intent section |
+|---|---|---|
+| 2.1.8 buildExpansionMessages system content mentions all 5 dimensions | ❌ to write | §5 — People, Objects, Environment, Events, Emotions |
+| 2.1.9 All user-facing builders include "SAME LANGUAGE" instruction | ❌ to write | §4 — AI always matches the user's language |
+| 2.1.10 Interpretation, life-connection, and tarot builders include "no markdown formatting" | ❌ to write | §2 §4 — AI must never use markdown |
+
+**2.1.8 spec:**
+- Call `buildExpansionMessages` with minimal session
+- Assert `result[0].content` (system prompt) contains all five: "People", "Objects", "Environment", "Events", "Emotions"
+
+**2.1.9 spec:**
+- Call each of: `buildExpansionMessages`, `buildInterpretationMessages`, `buildLifeConnectionInterpretationMessages`, `buildTarotInterpretationMessages`
+- For each, assert the system content includes "SAME LANGUAGE"
+
+**2.1.10 spec:**
+- Call each of: `buildInterpretationMessages`, `buildLifeConnectionInterpretationMessages`, `buildTarotInterpretationMessages`
+- For each, assert the system content includes "no markdown formatting"
+
+---
+
 ### 2.2 — Dream Model
 
 File: `src/__tests__/dream-model.test.ts` — 3 of 4 passing ✅
@@ -131,7 +177,7 @@ File: `src/__tests__/dream-model.test.ts` — 3 of 4 passing ✅
 | Test | Status | Notes |
 |---|---|---|
 | 2.2.1 `createSession` returns state RAW and userTurnCount 0 | ✅ | |
-| 2.2.2 Two `createSession` calls produce different sessionIDs | ⚠️ not written | Skipped by Claude Code — add in next pass |
+| 2.2.2 Two `createSession` calls produce different sessionIDs | ❌ to write | Skipped in last pass |
 | 2.2.3 `createDreamRecord` maps summary, interpretation, tarotCard from session | ✅ | |
 | 2.2.4 `createDreamRecord` falls back to "Untitled Dream" when title is empty | ✅ | |
 
@@ -149,7 +195,32 @@ File: `src/__tests__/localDreams.test.ts` — all passing ✅
 
 ---
 
-## Part 2 — Missing Integration Tests
+## Part 1b — Security and Environment Tests (new — from DESIGN_INTENT.md §6)
+
+File: `src/__tests__/security.test.ts` (new file — no mocks needed, reads real files)
+
+These are not runtime tests — they read the actual project files to catch accidental security drift. Run with `npx jest`.
+
+| Test | Status | Intent section |
+|---|---|---|
+| 4.1.1 KIMI_API_KEY does not appear in any EXPO_PUBLIC_ variable in .env.local | ❌ to write | §6 — API key must never be exposed to client |
+| 4.1.2 CLERK_SECRET_KEY does not appear in any EXPO_PUBLIC_ variable in .env.local | ❌ to write | §6 — secret key must never be exposed to client |
+| 4.1.3 No `EXPO_PUBLIC_` variable in .env.local contains the word "SECRET" or "KEY" followed by a value that looks like an API key | ❌ to write | §6 — general guard against accidentally exposing server-only credentials |
+
+**4.1.1 spec:**
+- Read `.env.local` as a string
+- Split by newline, filter lines starting with `EXPO_PUBLIC_`
+- Assert none of those lines contain "KIMI_API_KEY" or the actual key value
+
+**4.1.2 spec:**
+- Same approach — assert no `EXPO_PUBLIC_` line contains "CLERK_SECRET_KEY"
+
+**4.1.3 spec:**
+- For each `EXPO_PUBLIC_` line, assert the value does not look like a secret (e.g. does not start with `sk-` or `sk_`)
+
+---
+
+## Part 2 — Integration Tests
 
 These tests use Jest (no Detox, no simulator). They test real module logic with only the network boundary mocked.
 
@@ -235,7 +306,18 @@ Suite total: 148.5 s
 | Integration — llm-client | `integration/llm-client.test.ts` | 3.2.1–3.2.7 (7 tests) | ✅ all passing |
 | E2E — full journeys | `e2e/*.test.ts` | 3.3–3.8 | ✅ all passing |
 
-**Total: 95 unit/integration tests + full E2E suite — all passing ✅**
+**Current: 95 unit/integration tests + full E2E suite — all passing ✅**
 
-### One remaining gap
-**2.2.2** — two `createSession` calls produce different sessionIDs — was not written in the last pass. Add to `dream-model.test.ts` in the next Claude Code run.
+### New tests to write (identified from DESIGN_INTENT.md review)
+
+| Test | File | Intent section | Priority |
+|---|---|---|---|
+| 2.2.2 Two createSession calls produce different sessionIDs | `dream-model.test.ts` | — | Low (simple) |
+| 2.1.8 Expansion prompt mentions all 5 dimensions | `llm-prompts.test.ts` | §5 | High |
+| 2.1.9 All user-facing builders include SAME LANGUAGE instruction | `llm-prompts.test.ts` | §4 | High |
+| 2.1.10 Interpretation builders include no-markdown instruction | `llm-prompts.test.ts` | §2 §4 | High |
+| 1.4.31 saveRecord calls local save BEFORE Supabase | `useOrchestrator.test.ts` | §6 §9 | High |
+| 1.4.32 skipTarot + saveRecord preserves narrative/interpretation, tarot_card null | `useOrchestrator.test.ts` | §7 | Medium |
+| 4.1.1 KIMI_API_KEY not in any EXPO_PUBLIC_ var | `security.test.ts` | §6 | High |
+| 4.1.2 CLERK_SECRET_KEY not in any EXPO_PUBLIC_ var | `security.test.ts` | §6 | High |
+| 4.1.3 No EXPO_PUBLIC_ value looks like an API secret | `security.test.ts` | §6 | Medium |
