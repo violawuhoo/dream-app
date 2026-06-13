@@ -239,21 +239,42 @@ export function useOrchestrator(
     }
   };
 
-  const drawTarot = () => {
+  const drawTarot = async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let drawnCard: any;
+    setIsProcessing(true);
     try {
-      const tarotCard = getRandomTarotCard();
-      const cardMsg = { role: "assistant", content: `You drew **${tarotCard.name}**. ${tarotCard.meaning}` };
+      drawnCard = getRandomTarotCard();
+      const cardMsg = { role: "assistant", content: `You drew **${drawnCard.name}**.` };
       const baseMessages = [...session.messages, cardMsg];
+      // Set the card immediately so the overlay can show the name while the
+      // LLM generates a personalised interpretation in the background.
       updateSession({
-        tarotCard,
-        tarotInterpretation: tarotCard.meaning,
-        messages: [...baseMessages, { role: "assistant", content: tarotCard.meaning }],
+        tarotCard: drawnCard,
+        messages: baseMessages,
+        state: DreamFlowState.TAROT_INTERPRETING,
+      });
+
+      const sessionWithCard = { ...session, tarotCard: drawnCard };
+      const prompts = buildTarotInterpretationMessages({ session: sessionWithCard });
+      let tarotInterpretation = "";
+      for await (const chunk of callLLM(prompts, 0.7, getToken)) {
+        tarotInterpretation += chunk;
+        updateSession({
+          tarotInterpretation,
+          messages: [...baseMessages, { role: "assistant", content: tarotInterpretation }],
+        });
+      }
+      updateSession({ state: DreamFlowState.DONE });
+    } catch (e) {
+      console.error("drawTarot LLM failed, falling back to card meaning", e);
+      setError("The connection wavered. Please try again.");
+      updateSession({
+        ...(drawnCard ? { tarotCard: drawnCard, tarotInterpretation: drawnCard.meaning } : {}),
         state: DreamFlowState.DONE,
       });
-    } catch (e) {
-      console.error(e);
-      setError("The connection wavered. Please try again.");
-      updateSession({ state: DreamFlowState.DONE });
+    } finally {
+      setIsProcessing(false);
     }
   };
 

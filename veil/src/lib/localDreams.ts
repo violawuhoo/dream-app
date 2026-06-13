@@ -22,6 +22,17 @@ export async function getLocalDreams(userId: string): Promise<Record<string, unk
   }
 }
 
+export async function getLocalDreamById(id: string): Promise<Record<string, unknown> | null> {
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (!raw) return null;
+    const dreams: Record<string, unknown>[] = JSON.parse(raw);
+    return dreams.find((d) => d.id === id) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteLocalDream(id: string) {
   try {
     const raw = await AsyncStorage.getItem(KEY);

@@ -29,6 +29,7 @@ import { VeilCard } from "../../src/components/ui/VeilCard";
 import { VeilText } from "../../src/components/ui/VeilText";
 import { useOrchestratorContext } from "../../src/lib/OrchestratorContext";
 import { consumePendingDreamRecord } from "../../src/lib/pendingDreamRecord";
+import { getLocalDreamById, deleteLocalDream } from "../../src/lib/localDreams";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -203,21 +204,28 @@ export default function DreamDetailScreen() {
     const ac = new AbortController();
     const FETCH_TIMEOUT = 5000;
 
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       // Abort the network request so EarlGrey sees the app as idle.
       ac.abort();
       const rec = sessionRef.current.completedRecord as any;
       if (rec && rec.id === id) {
         setDream(recToDreamRow(rec));
+        setLoading(false);
       } else {
-        setNotFound(true);
+        // Fall back to local AsyncStorage cache (covers RLS-blocked dreams).
+        const localDream = await getLocalDreamById(id!);
+        if (localDream) {
+          setDream(recToDreamRow(localDream));
+        } else {
+          setNotFound(true);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     }, FETCH_TIMEOUT);
 
     supabase.from("dream_records").select("*").eq("id", id).single()
       .abortSignal(ac.signal)
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         clearTimeout(timeoutId);
         if (ac.signal.aborted) return;
         if (error || !data) {
@@ -225,7 +233,13 @@ export default function DreamDetailScreen() {
           if (rec && rec.id === id) {
             setDream(recToDreamRow(rec));
           } else {
-            setNotFound(true);
+            // Fall back to local AsyncStorage cache (covers RLS-blocked dreams).
+            const localDream = await getLocalDreamById(id!);
+            if (localDream) {
+              setDream(recToDreamRow(localDream));
+            } else {
+              setNotFound(true);
+            }
           }
         } else {
           setDream(recToDreamRow(data));
@@ -292,6 +306,8 @@ export default function DreamDetailScreen() {
             } finally {
               clearTimeout(timeout);
             }
+            // Always remove from local cache too so the archive stays in sync.
+            await deleteLocalDream(id!);
             router.replace("/(tabs)/archive");
           },
         },

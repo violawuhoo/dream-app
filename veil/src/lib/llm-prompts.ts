@@ -2,12 +2,12 @@
 export function formatRecentMessages(messages: any[]) {  return messages
     .slice(-10)
     .map((message: any) => `${message.role.toUpperCase()}: ${message.content}`)
-    .join("\\n");
+    .join("\n");
 }
 
 export function buildExpansionMessages({ session, latestUserMessage, continuation = false }: { session: any; latestUserMessage: string; continuation?: boolean }) {
   const recentMessages = formatRecentMessages(session.messages);
-  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\\n");
+  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
 
   return [
     {
@@ -53,7 +53,7 @@ export function buildLifeConnectionQuestionMessages({ session, interpretation }:
 }
 
 export function buildStructuredMessages({ session }: { session: any }) {
-  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\\n");
+  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
 
   return [
     {
