@@ -6,8 +6,9 @@ export function formatRecentMessages(messages: any[]) {  return messages
 }
 
 export function buildExpansionMessages({ session, latestUserMessage, continuation = false }: { session: any; latestUserMessage: string; continuation?: boolean }) {
-  const recentMessages = formatRecentMessages(session.messages);
-  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
+  // Cap dreamFragments so the user message stays well under the 2000-char API limit.
+  const rawFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
+  const dreamFragments = rawFragments.length > 1200 ? "…" + rawFragments.slice(-1200) : rawFragments;
 
   return [
     {
@@ -53,7 +54,13 @@ export function buildLifeConnectionQuestionMessages({ session, interpretation }:
 }
 
 export function buildStructuredMessages({ session }: { session: any }) {
-  const dreamFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
+  // Cap both inputs so the joined user message stays under the 2000-char API limit.
+  // Budget: fixed overhead ~135 chars → 900 chars each for fragments + conversation.
+  const rawFragments = session.rawEntries.map((entry: string, index: number) => `${index + 1}. ${entry}`).join("\n");
+  const dreamFragments = rawFragments.length > 900 ? "…" + rawFragments.slice(-900) : rawFragments;
+
+  const rawRecent = formatRecentMessages(session.messages);
+  const recentConversation = rawRecent.length > 900 ? "…" + rawRecent.slice(-900) : rawRecent;
 
   return [
     {
@@ -67,7 +74,7 @@ export function buildStructuredMessages({ session }: { session: any }) {
         "Dream fragments to summarize:",
         dreamFragments || "(none yet)",
         "Recent conversation:",
-        formatRecentMessages(session.messages) || "(none yet)",
+        recentConversation || "(none yet)",
         "Write a concise, accurate, natural-language summary with no interpretation.",
       ].join("\n\n"),
     },
@@ -112,6 +119,12 @@ CRITICAL: Each section must be 40% shorter than usual. Do not use any markdown f
 }
 
 export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }: { session: any; lifeEvent: string }) {
+  // Cap interpretation to guard against a verbose LLM response pushing the
+  // combined user message over the 2000-char API validation limit.
+  const interpretation = (session.interpretation || "").length > 900
+    ? (session.interpretation || "").slice(0, 900) + "…"
+    : (session.interpretation || "");
+
   return [
     {
       role: "system",
@@ -119,7 +132,7 @@ export function buildLifeConnectionInterpretationMessages({ session, lifeEvent }
         `You are Veil, a professional dream analyst. The user has shared a specific life event. Provide an updated 2-part interpretation that bridges the dream to reality.
 
 STRICT RULES:
-1. No fatalism, no omens, no superstition. 
+1. No fatalism, no omens, no superstition.
 2. Follow Western cultural symbols.
 3. Tone: Gentle, healing, objective, and grounded.
 4. BREVITY: Each section must be 40% shorter than usual.
@@ -137,7 +150,7 @@ CRITICAL: Do not use any markdown formatting like * or #. Use the exact format '
         "Dream Summary:",
         session.summary,
         "Initial Interpretation:",
-        session.interpretation,
+        interpretation,
         "User's Life Context:",
         lifeEvent,
         "Provide the focused 2-part life-connection mapping and actionable guidance now in the user's language. Be very brief.",

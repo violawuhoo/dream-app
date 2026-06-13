@@ -31,6 +31,7 @@ import type { TarotCard as TarotCardData } from "../../src/data/tarot-data";
 const STATE_CARD_STATES = [
   DreamFlowState.STRUCTURED,
   DreamFlowState.AWAITING_TAROT_DECISION,
+  DreamFlowState.TAROT_INTERPRETING,  // show save card while oracle interpretation streams
   DreamFlowState.DONE,
 ] as const;
 
@@ -433,7 +434,8 @@ export default function CaptureScreen() {
             </VeilCard>
           )}
 
-          {session.state === DreamFlowState.DONE && (
+          {(session.state === DreamFlowState.TAROT_INTERPRETING ||
+            session.state === DreamFlowState.DONE) && (
             <VeilCard>
               <VeilText variant="body">Your dream is preserved.</VeilText>
               <View style={{ marginTop: 12, gap: 8 }}>
